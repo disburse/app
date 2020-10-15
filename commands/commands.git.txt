@@ -16,7 +16,7 @@ git push
 
 
 
-Error: No configured push destination
+Error 1) No configured push destination
 
 To add the remote repository:
 git remote add origin https://github.com/disburse/webapp.git
@@ -24,3 +24,7 @@ git remote add origin https://github.com/disburse/webapp.git
 
 To verify it has been added: 
 git remote -v
+
+
+Error 2) files not being update on git hub
+git push -u origin --all
