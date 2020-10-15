@@ -1,0 +1,19 @@
+1. To initiate truffle project:
+
+truffle init
+
+2. To compile contracts:
+
+truffle compile
+
+3. To test contracts:
+
+truffle test
+
+4. To load truffle ethereum node:
+
+truffle develop
+
+5. To migrate contract to ethereum node:
+
+truffle migrate --reset
