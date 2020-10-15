@@ -1,0 +1,15 @@
+1. To download repository:
+
+git clone https://github.com/disburse/app.git
+
+2. To add new files: 
+
+git add .
+
+3. To commit changes:
+
+git commit -m "[Place message here]"
+
+4. To push changes to github:
+
+git push
