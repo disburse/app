@@ -13,3 +13,14 @@ git commit -m "[Place message here]"
 4. To push changes to github:
 
 git push
+
+
+
+Error: No configured push destination
+
+To add the remote repository:
+git remote add origin https://github.com/disburse/webapp.git
+
+
+To verify it has been added: 
+git remote -v
