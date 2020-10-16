@@ -14,6 +14,10 @@ truffle test
 
 truffle develop
 
+Alternatively, you can use ganache ethereum node: 
+
+ganache-cli -d
+
 5. To migrate contract to ethereum node:
 
 truffle migrate --reset
