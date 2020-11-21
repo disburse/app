@@ -1,3 +1,5 @@
+Installation: npm install -g truffle
+
 1. To initiate truffle project:
 
 truffle init
