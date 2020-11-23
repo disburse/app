@@ -3,29 +3,20 @@
 git clone https://github.com/disburse/app.git
 git clone https://github.com/disburse/webapp.git
 
-2. To add new files: 
+2. To Add, Commit & Push changes to github:
 
-git add .
-
-3. To commit changes:
-
-git commit -m "[Place message here]"
-
-4. To push changes to github:
-
-git push
-
-
+    git add .
+    git status 
+    git commit -m "[Place message here]"
+    git push
 
 Error 1) No configured push destination
 
 To add the remote repository:
 git remote add origin https://github.com/disburse/webapp.git
 
-
 To verify it has been added: 
 git remote -v
-
 
 Error 2) files not being update on git hub
 git push -u origin --all
