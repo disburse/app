@@ -23,3 +23,8 @@ ganache-cli -d
 5. To migrate contract to ethereum node:
 
 truffle migrate --reset
+
+6. Change truffle compiler version
+
+If needed, you can change the truffle compiler version in truffle-config.js
+
