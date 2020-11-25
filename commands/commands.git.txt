@@ -2,6 +2,8 @@
 
 git clone https://github.com/disburse/app.git
 git clone https://github.com/disburse/webapp.git
+git clone https://github.com/disburse/token.git
+
 
 2. To Add, Commit & Push changes to github:
 
