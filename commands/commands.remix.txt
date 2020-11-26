@@ -1,0 +1,10 @@
+You can test deployed contracts using Remix:
+
+    https://remix.ethereum.org/
+
+Steps:
+
+1) Ensure Metamask is pointing to your local ganache environment
+2) Ensure Remix is using Injected Web3 (which will make use of Metamask).
+3) Import Solidity code into Remix and then deploy a Contract at a specific address 
+    -The contract address from truffle migrate.
