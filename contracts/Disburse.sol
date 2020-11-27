@@ -3,15 +3,21 @@ pragma solidity >=0.4.22 <0.8.0;
 
 contract Disburse {
     
-    address public admin;
-    uint256 deadline;
+    address public owner;
+    uint256 deadline;                               // persistent contract storage
+    mapping(address => uint256) public balanceOf;   // balances, indexed by addresses
+
+    modifier ownerOnly {
+        require(owner == msg.sender);
+        _;   // <--- note the '_', which represents the modified function's body
+    }
     
-    modifier restricted() {
-        require(
-        msg.sender == admin,
-        "This function is restricted to the administrator"
-        );
-        _;
+    constructor() public {
+        owner = msg.sender;
+    }
+    
+    function changeOwner(address newOwner) public ownerOnly {
+        owner = newOwner;
     }
     
     function deposit() payable public {
@@ -20,35 +26,31 @@ contract Disburse {
     
     function deposit(uint256 amount) payable public {
         require(msg.value == amount);
-        // nothing else to do!
+
+        balanceOf[msg.sender] += amount;     // adjust the account's balance
     }
     
-    function withdraw() public {
+    function withdraw() public ownerOnly {
         msg.sender.transfer(address(this).balance);
     }
+    
+    function withdraw(uint256 amount) public {
+        require(amount <= balanceOf[msg.sender]);
+        balanceOf[msg.sender] -= amount;
+        msg.sender.transfer(amount);
+    }    
     
     // Retrieve contract balance
     function getBalance() public view returns (uint256) {
         return address(this).balance;
     }
     
-    function setDisburseDate(uint256 numberOfDays) public {
-        
-        // The Ethereum Virtual Machine represents time as the (integer) number of seconds 
-        // since the “Unix epoch”
-        
-        // https://www.epochconverter.com/
-
-        // Solidity provides convenient time units like days and years, which are helpful 
-        // in computing time spans.
-        
+    function setDeadline(uint256 numberOfDays) public payable {
         deadline = block.timestamp + (numberOfDays * 1 days);
     }
-    
-    function disburse() public payable {
-        
-        require(block.timestamp >= deadline);
 
+    function disburse() public payable {
+        require(block.timestamp >= deadline);
         msg.sender.transfer(address(this).balance);
     }
     
