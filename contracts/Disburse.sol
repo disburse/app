@@ -53,5 +53,11 @@ contract Disburse {
         require(block.timestamp >= deadline);
         msg.sender.transfer(address(this).balance);
     }
+
+    // Destroy contract and reclaim leftover funds.
+    function kill() public {
+        require(msg.sender == owner);
+        selfdestruct(msg.sender);
+    }
     
 }
