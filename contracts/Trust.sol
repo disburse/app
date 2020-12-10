@@ -7,6 +7,9 @@ contract Trust {
     address payable public beneficiary;
     mapping(address => uint256) public balanceOf;
 
+    // Declare an array of payable recipients
+    // address payable[] recipients; 
+
     function initiateTrust() public payable {
         balanceOf[msg.sender] = msg.value;
     }
@@ -24,7 +27,12 @@ contract Trust {
         bool deadlinePassed = getDeadlinePassed();
         
         if (deadlinePassed){
+
+            // This sends the entire contract balance to the beneficiary
             beneficiary.transfer(address(this).balance);
+
+            // Syntax to transfer to the address calling the contract
+            // msg.sender.transfer();
         }
     }
     
@@ -48,6 +56,21 @@ contract Trust {
     
     function setDeadlineDays(uint256 numberOfDays) public {
         deadline = block.timestamp + (numberOfDays * 1 days);
+    }
+
+    // Pure functions do not read or modify any storage data
+    // View functions can read from storage data
+    function calculatePercentage(uint256 _amount, uint256 _bps) public pure returns(uint256) {
+        
+        // Ensure amount being calculated is large enough
+        require ((_amount / 10000) * 10000 == _amount, 'too small');
+        
+        // Example: Assume 185 basis points, which is the same as 0.0185
+        // To turn 0.0185 into a non-decimal it must be times by 10,10000
+        // 0.0185 = 10,000 
+        // Then to return the number to its original value it must be divided by 10,000
+        
+        return _amount * _bps / 10000;
     }
 
 }
