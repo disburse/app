@@ -1,3 +1,13 @@
 1. Generate package.json file
 
 npm init
+
+2. To remove an NPM package:
+
+    From the project root folder (the folder that contains the node_modules folder):
+    
+    npm uninstall <package-name>    
+
+    OR for global packages:
+
+    npm uninstall -g <package-name>
