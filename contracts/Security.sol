@@ -2,8 +2,9 @@
 pragma solidity >=0.4.22 <0.8.0;
 
 import "../node_modules/@openzeppelin/contracts/utils/Pausable.sol";
+import "../node_modules/@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
-contract Security is Pausable {
+contract Security is Pausable, ReentrancyGuard {
 
     bool public isActive = true;
     address public admin;
@@ -18,7 +19,7 @@ contract Security is Pausable {
         _;
     }
     
-    constructor(address _address) Pausable() public {
+    constructor(address _address) Pausable() ReentrancyGuard() public {
         admin = _address;
     }
     
