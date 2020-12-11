@@ -1,14 +1,18 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity >=0.4.22 <0.8.0;
 
-contract Trust {
+import './Security.sol';
+
+contract Trust is Security {
     
     uint256 public deadline;   
     address payable public beneficiary;
     mapping(address => uint256) public balanceOf;
 
-    // Declare an array of payable recipients
-    // address payable[] recipients; 
+    address payable[] recipients; 
+
+    // Call parent constructor
+    constructor() Security(msg.sender) public {}
 
     function initiateTrust() public payable {
         balanceOf[msg.sender] = msg.value;
@@ -23,16 +27,11 @@ contract Trust {
         _balance = address(this).balance;
     }
     
-    function disburseFunds() public {
+    function disburseFunds() public adminOnly active {
         bool deadlinePassed = getDeadlinePassed();
         
         if (deadlinePassed){
-
-            // This sends the entire contract balance to the beneficiary
             beneficiary.transfer(address(this).balance);
-
-            // Syntax to transfer to the address calling the contract
-            // msg.sender.transfer();
         }
     }
     
@@ -57,9 +56,7 @@ contract Trust {
     function setDeadlineDays(uint256 numberOfDays) public {
         deadline = block.timestamp + (numberOfDays * 1 days);
     }
-
-    // Pure functions do not read or modify any storage data
-    // View functions can read from storage data
+    
     function calculatePercentage(uint256 _amount, uint256 _bps) public pure returns(uint256) {
         
         // Ensure amount being calculated is large enough
