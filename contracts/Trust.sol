@@ -27,7 +27,7 @@ contract Trust is Security {
         _balance = address(this).balance;
     }
     
-    function disburseFunds() public adminOnly active {
+    function disburseFunds() public adminOnly() whenNotPaused() active() {
         bool deadlinePassed = getDeadlinePassed();
         
         if (deadlinePassed){

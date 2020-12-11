@@ -18,5 +18,8 @@
   "bugs": {
     "url": "https://github.com/disburse/app/issues"
   },
-  "homepage": "https://github.com/disburse/app#readme"
+  "homepage": "https://github.com/disburse/app#readme",
+  "dependencies": {
+    "@openzeppelin/contracts": "^3.3.0"
+  }
 }

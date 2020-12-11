@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity >=0.4.22 <0.8.0;
 
-contract Security {
+import "../node_modules/@openzeppelin/contracts/utils/Pausable.sol";
+
+contract Security is Pausable {
 
     bool public isActive = true;
     address public admin;
@@ -16,7 +18,7 @@ contract Security {
         _;
     }
     
-    constructor(address _address) public {
+    constructor(address _address) Pausable() public {
         admin = _address;
     }
     
