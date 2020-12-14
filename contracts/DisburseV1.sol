@@ -20,7 +20,7 @@ contract DisburseV1 {
     // Mapping the current beneficiary balance, which may be less than the trust balance
     mapping(address => uint256) beneficiaryBalance;
 
-    function initiateTrust() public payable {
+    function contributeToTrust() public payable {
         trustBalance[msg.sender] += msg.value;  // Add funds to any previous funds
     }
 
@@ -37,40 +37,43 @@ contract DisburseV1 {
     }
 
     function addBeneficiarySeconds(address _beneficiaryAddress, uint256 _seconds, uint256 _amount) public {
-        addBeneficiary(msg.sender, _beneficiaryAddress, _seconds, _amount);
+        addBeneficiary(_beneficiaryAddress, _seconds, _amount);
     }
 
     function addBeneficiaryDays(address _beneficiaryAddress, uint256 _days, uint256 _amount) public {
         uint256 sec =  _days * 86400;               // Determine number of seconds
-        addBeneficiary(msg.sender, _beneficiaryAddress, sec, _amount);
+        addBeneficiary(_beneficiaryAddress, sec, _amount);
     }
 
-    function addBeneficiary(address _trustAddress, address _beneficiaryAddress, uint256 _seconds, uint256 _amount) internal {
+    function addBeneficiary(address _beneficiaryAddress, uint256 _seconds, uint256 _amount) internal {
         
-        uint256 trustAmount = getTrustBalance(_trustAddress);
-        uint256 beneficiaryAmount = getBeneficiaryBalance(_trustAddress);
+        // Only trust owner can add beneficiary 
+        address trustAddress = msg.sender;
         
         // Ensure trust has been previously intiated
+        uint256 trustAmount = getTrustBalance(trustAddress);
         require(trustAmount > 0);
         
         // Ensure trust has sufficient funds to disburse to beneficiary
+        uint256 beneficiaryAmount = getBeneficiaryBalance(trustAddress);
         require (beneficiaryAmount + _amount <= trustAmount);
         
         // Update total beneficiary amount
-        beneficiaryBalance[_trustAddress] += _amount;
+        beneficiaryBalance[trustAddress] += _amount;
 
         // Determine beneficiary disbursement date
         uint256 deadline = block.timestamp + _seconds;
 
         // Create new beneficiary
-        Beneficiary memory beneficiary = Beneficiary(_trustAddress, deadline, _amount, false);
+        Beneficiary memory beneficiary = Beneficiary(trustAddress, deadline, _amount, false);
         
         // Add beneficiary to trust
-        beneficiaries[_trustAddress][_beneficiaryAddress] = beneficiary;
+        beneficiaries[trustAddress][_beneficiaryAddress] = beneficiary;
     }
     
-    function getBeneficiary(address _address) public view returns(Beneficiary memory _beneficiary) {
-        _beneficiary = beneficiaries[msg.sender][_address];
+    function getBeneficiary(address _beneficiaryAddress) public view returns(Beneficiary memory _beneficiary) {
+        // Only trust owner can get details of beneficiary
+        _beneficiary = beneficiaries[msg.sender][_beneficiaryAddress];
     }
     
     function deadlinePassed(address _beneficiaryAddress) public view returns (bool) {
