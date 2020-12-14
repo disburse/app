@@ -6,7 +6,7 @@ contract DisburseV1 {
  
      struct Beneficiary { 
         address trust;
-        uint256 deadline;
+        uint256 disburseDate;
         uint256 amount;
         bool invest;
     }
@@ -14,15 +14,22 @@ contract DisburseV1 {
     // Mapping that outlines how funds should be disbursed to beneficiaries
     mapping(address => mapping(address => Beneficiary)) beneficiaries;
 
-    // Mapping that records total balance of funds
-    mapping(address => uint256) balanceOf;
+    // Mapping that records total trust balance
+    mapping(address => uint256) trustBalance;
+    
+    // Mapping the current beneficiary balance, which may be less than the trust balance
+    mapping(address => uint256) beneficiaryBalance;
 
     function initiateTrust() public payable {
-        balanceOf[msg.sender] += msg.value;  // Add funds to any previous funds
+        trustBalance[msg.sender] += msg.value;  // Add funds to any previous funds
     }
 
-    function getTrustBalance() public view returns(uint256 _balance) {
-        _balance = balanceOf[msg.sender];
+    function getTrustBalance(address _trustAddress) internal view returns(uint256 _balance) {
+        _balance = trustBalance[_trustAddress];
+    }
+
+    function getBeneficiaryBalance(address _trustAddress) internal view returns(uint256 _balance) {
+        _balance = beneficiaryBalance[_trustAddress];
     }
 
     function getContractBalance() public view returns(uint256 _balance) {
@@ -40,13 +47,25 @@ contract DisburseV1 {
 
     function addBeneficiary(address _trustAddress, address _beneficiaryAddress, uint256 _seconds, uint256 _amount) internal {
         
-        // Determine deadline date
-        uint256 deadline = block.timestamp + _seconds;
+        uint256 trustAmount = getTrustBalance(_trustAddress);
+        uint256 beneficiaryAmount = getBeneficiaryBalance(_trustAddress);
         
-        // Create beneficiary
+        // Ensure trust has been previously intiated
+        require(trustAmount > 0);
+        
+        // Ensure trust has sufficient funds to disburse to beneficiary
+        require (beneficiaryAmount + _amount <= trustAmount);
+        
+        // Update total beneficiary amount
+        beneficiaryBalance[_trustAddress] += _amount;
+
+        // Determine beneficiary disbursement date
+        uint256 deadline = block.timestamp + _seconds;
+
+        // Create new beneficiary
         Beneficiary memory beneficiary = Beneficiary(_trustAddress, deadline, _amount, false);
         
-        // Add beneficiary to mapping
+        // Add beneficiary to trust
         beneficiaries[_trustAddress][_beneficiaryAddress] = beneficiary;
     }
     
@@ -59,11 +78,12 @@ contract DisburseV1 {
         Beneficiary memory beneficiary = getBeneficiary(_beneficiaryAddress);
         
         // Ensure deadline has been set && has passed
-        if (beneficiary.deadline != 0 && block.timestamp >= beneficiary.deadline) return true; 
+        if (beneficiary.disburseDate != 0 && block.timestamp >= beneficiary.disburseDate) return true; 
 
         return false; 
     }
     
+    // This function should be callable anyone, including an external job
     function disburseFunds(address payable _beneficiaryAddress) public {
         
         bool passed = deadlinePassed(_beneficiaryAddress);
@@ -71,13 +91,20 @@ contract DisburseV1 {
         if (passed) {
             
             Beneficiary memory beneficiary = getBeneficiary(_beneficiaryAddress);
+            uint256 disburseAmount = beneficiary.amount;
             
             // Reduce trust balance
-            balanceOf[beneficiary.trust] -= beneficiary.amount;
+            trustBalance[beneficiary.trust] -= disburseAmount;
             
-            // TODO: set the beneficiary to disbursed and the new amount to zero
+            // Reduce total beneficiary claims
+            beneficiaryBalance[beneficiary.trust] -= disburseAmount;
             
-            _beneficiaryAddress.transfer(beneficiary.amount);
+            // Reset the beneficiary amount and disbursement date
+            beneficiaries[beneficiary.trust][_beneficiaryAddress].amount = 0;
+            beneficiaries[beneficiary.trust][_beneficiaryAddress].disburseDate = 0;
+        
+            // Finally, disburse funds to beneficiary
+            _beneficiaryAddress.transfer(disburseAmount);
         }
     }
 }
