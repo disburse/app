@@ -24,8 +24,12 @@ contract DisburseV1 {
         trustBalance[msg.sender] += msg.value;  // Add funds to any previous funds
     }
 
-    function getTrustBalance(address _trustAddress) internal view returns(uint256 _balance) {
+    function getTrustBalance(address _trustAddress) public view returns(uint256 _balance) {
         _balance = trustBalance[_trustAddress];
+    }
+
+    function withdrawTrustBalance() public {
+        msg.sender.transfer(address(this).balance);
     }
 
     function getBeneficiaryBalance(address _trustAddress) internal view returns(uint256 _balance) {
