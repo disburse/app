@@ -5,6 +5,9 @@ const assert = require("assert");
 //const web3 = new Web3(ganache.provider());
 //const web3 = new Web3(new Web3.providers.HttpProvider('http://127.0.0.1:7545'))
 
+//Connect to local Ganache
+//const provider = new Web3.providers.HttpProvider('http://localhost:8545');
+
 describe("Network Test", () => {
     it("it can retreive the network id", async () => {
         var networkId = await web3.eth.net.getId();
