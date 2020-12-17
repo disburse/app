@@ -8,6 +8,7 @@ contract DisburseV1 {
         address trust;
         uint256 disburseDate;
         uint256 amount;
+        bool backup;
         bool invest;
     }
 
@@ -69,7 +70,7 @@ contract DisburseV1 {
         uint256 deadline = block.timestamp + _seconds;
 
         // Create new beneficiary
-        Beneficiary memory beneficiary = Beneficiary(trustAddress, deadline, _amount, false);
+        Beneficiary memory beneficiary = Beneficiary(trustAddress, deadline, _amount, false, false);
         
         // Add beneficiary to trust
         beneficiaries[trustAddress][_beneficiaryAddress] = beneficiary;
