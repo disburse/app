@@ -30,6 +30,7 @@ contract DisburseV1 {
     }
 
     function withdrawTrustBalance() public {
+        trustBalance[msg.sender] = 0;
         msg.sender.transfer(address(this).balance);
     }
 
