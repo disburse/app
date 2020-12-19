@@ -5,7 +5,8 @@ pragma experimental ABIEncoderV2;
 contract DisburseV1 {
  
      struct Beneficiary { 
-        address trust;
+        address trustAddress;
+        address beneficiaryAddress;
         uint256 disburseDate;
         uint256 amount;
         bool backup;
@@ -18,6 +19,9 @@ contract DisburseV1 {
     // Mapping that records total trust balance
     mapping(address => uint256) trustBalance;
     
+    // Mapping to record total beneficiaries for each trust
+    mapping(address => uint256) beneficiaryCount;
+
     // Mapping the current beneficiary balance, which may be less than the trust balance
     mapping(address => uint256) beneficiaryBalance;
 
@@ -51,7 +55,7 @@ contract DisburseV1 {
         addBeneficiary(_beneficiaryAddress, sec, _amount);
     }
 
-    function addBeneficiary(address _beneficiaryAddress, uint256 _seconds, uint256 _amount) internal {
+    function addBeneficiary(address _beneficiaryAddress, uint256 _seconds, uint256 _amount) public {
         
         // Only trust owner can add beneficiary 
         address trustAddress = msg.sender;
@@ -64,14 +68,23 @@ contract DisburseV1 {
         uint256 beneficiaryAmount = getBeneficiaryBalance(trustAddress);
         require (beneficiaryAmount + _amount <= trustAmount);
         
+        // Update total number of beneficiaries this trust is managing
+        beneficiaryCount[trustAddress] += 1;
+
         // Update total beneficiary amount
         beneficiaryBalance[trustAddress] += _amount;
 
         // Determine beneficiary disbursement date
-        uint256 deadline = block.timestamp + _seconds;
+        uint256 delayInSeconds = block.timestamp + _seconds;
 
         // Create new beneficiary
-        Beneficiary memory beneficiary = Beneficiary(trustAddress, deadline, _amount, false, false);
+        Beneficiary memory beneficiary = Beneficiary(
+                                            trustAddress, 
+                                            _beneficiaryAddress, 
+                                            delayInSeconds, 
+                                            _amount, 
+                                            false, 
+                                            false);
         
         // Add beneficiary to trust
         beneficiaries[trustAddress][_beneficiaryAddress] = beneficiary;
@@ -103,14 +116,14 @@ contract DisburseV1 {
             uint256 disburseAmount = beneficiary.amount;
             
             // Reduce trust balance
-            trustBalance[beneficiary.trust] -= disburseAmount;
+            trustBalance[beneficiary.trustAddress] -= disburseAmount;
             
             // Reduce total beneficiary claims
-            beneficiaryBalance[beneficiary.trust] -= disburseAmount;
+            beneficiaryBalance[beneficiary.trustAddress] -= disburseAmount;
             
             // Reset the beneficiary amount and disbursement date
-            beneficiaries[beneficiary.trust][_beneficiaryAddress].amount = 0;
-            beneficiaries[beneficiary.trust][_beneficiaryAddress].disburseDate = 0;
+            beneficiaries[beneficiary.trustAddress][_beneficiaryAddress].amount = 0;
+            beneficiaries[beneficiary.trustAddress][_beneficiaryAddress].disburseDate = 0;
         
             // Finally, disburse funds to beneficiary
             _beneficiaryAddress.transfer(disburseAmount);

@@ -36,13 +36,26 @@ contract("Disburse V1", () => {
         var delayInSeconds = 60;
         var amount = web3.utils.toWei('5', 'ether');
         
-        await disburse.addBeneficiarySeconds(beneficiaryAddress, delayInSeconds, amount, {from: trustAddress});
+        var weiAmount = web3.utils.toWei('10', 'ether');
+        await disburse.contributeToTrust({ from: accounts[0], value: weiAmount });
+
+        await disburse.addBeneficiarySeconds(
+                            beneficiaryAddress, 
+                            delayInSeconds, 
+                            amount, 
+                            {from: trustAddress});
+        
+        await disburse.withdrawTrustBalance({from: accounts[0]});
+
         var beneficiary = await disburse.getBeneficiary(beneficiaryAddress);
 
-        assert(beneficiary[0] == trustAddress);
-        assert(beneficiary[1] > 0);
-        assert(beneficiary[2] == amount);
-        assert(beneficiary[3] == false);
+        assert(beneficiary['trustAddress'] == trustAddress);
+        assert(beneficiary['beneficiaryAddress'] == beneficiaryAddress);
+        assert(beneficiary['disburseDate'] > 0);
+        assert(beneficiary['amount'] == amount);
+        assert(beneficiary['invest'] == false);
+        assert(beneficiary['backup'] == false);
+
     });
 
     it("cannot add beneficiary without trust", async () => {
