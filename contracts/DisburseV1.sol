@@ -13,6 +13,9 @@ contract DisburseV1 {
         bool invest;
     }
 
+    // TEST: Mapping that outlines how funds should be disbursed to beneficiaries
+    mapping(address => mapping(uint256 => Beneficiary)) indexedBeneficiaries;
+
     // Mapping that outlines how funds should be disbursed to beneficiaries
     mapping(address => mapping(address => Beneficiary)) beneficiaries;
 
@@ -38,7 +41,7 @@ contract DisburseV1 {
         msg.sender.transfer(address(this).balance);
     }
 
-    function getBeneficiaryBalance(address _trustAddress) internal view returns(uint256 _balance) {
+    function getBeneficiaryBalance(address _trustAddress) public view returns(uint256 _balance) {
         _balance = beneficiaryBalance[_trustAddress];
     }
 
@@ -68,9 +71,6 @@ contract DisburseV1 {
         uint256 beneficiaryAmount = getBeneficiaryBalance(trustAddress);
         require (beneficiaryAmount + _amount <= trustAmount);
         
-        // Update total number of beneficiaries this trust is managing
-        beneficiaryCount[trustAddress] += 1;
-
         // Update total beneficiary amount
         beneficiaryBalance[trustAddress] += _amount;
 
@@ -88,8 +88,39 @@ contract DisburseV1 {
         
         // Add beneficiary to trust
         beneficiaries[trustAddress][_beneficiaryAddress] = beneficiary;
+
+        // TEST: an iterable version (beneficiaryCount updated above)
+        //Every key maps to something. If no value has been set yet, then the value is 0.
+        uint256 index = beneficiaryCount[trustAddress]; 
+        indexedBeneficiaries[trustAddress][index] = beneficiary;
+        // Update total number of beneficiaries this trust is managing
+        beneficiaryCount[trustAddress] += 1;
     }
     
+    // TEST:
+    function getBeneficiaryCount() public view returns(uint256 _count) {
+        _count = beneficiaryCount[msg.sender];
+    }
+    
+    // TEST:
+    function removeBeneficiaryAtIndex(uint256 _index) public {
+        require(_index >= 1);
+        
+        Beneficiary memory beneficiary = indexedBeneficiaries[msg.sender][_index-1];
+        
+        // Reduce total beneficiary claims
+        beneficiaryBalance[msg.sender] -= beneficiary.amount;
+            
+        // Update total number of beneficiaries this trust is managing
+        beneficiaryCount[msg.sender] -= 1;
+    }
+
+    // TEST:
+    function getBeneficiaryAtIndex(uint256 _index) public view returns(Beneficiary memory _beneficiary) {
+        // Only trust owner can get details of beneficiary
+        _beneficiary = indexedBeneficiaries[msg.sender][_index];
+    }
+
     function getBeneficiary(address _beneficiaryAddress) public view returns(Beneficiary memory _beneficiary) {
         // Only trust owner can get details of beneficiary
         _beneficiary = beneficiaries[msg.sender][_beneficiaryAddress];
