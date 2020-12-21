@@ -41,6 +41,11 @@ contract DisburseV1 {
         msg.sender.transfer(address(this).balance);
     }
 
+    function withdrawAmountFromTrustBalance(uint256 _amount) public {
+        trustBalance[msg.sender] -= _amount;
+        msg.sender.transfer(_amount);
+    }
+
     function getBeneficiaryBalance(address _trustAddress) public view returns(uint256 _balance) {
         _balance = beneficiaryBalance[_trustAddress];
     }

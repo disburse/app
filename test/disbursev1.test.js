@@ -30,6 +30,30 @@ contract("Disburse V1", () => {
         assert(newBalance >= originalBalance);
     });
 
+    it("can withdraw specific amount from trust balance", async () => {
+        var originalBalance = await web3.eth.getBalance(accounts[0]);
+
+        // Withdraw from original balance and send to contract
+        var weiAmount = web3.utils.toWei('10', 'ether');
+        await disburse.contributeToTrust({ from: accounts[0], value: weiAmount });
+        
+        // Send back to account from contract
+        weiAmount = web3.utils.toWei('2', 'ether');
+        await disburse.withdrawAmountFromTrustBalance(weiAmount, {from: accounts[0]});
+
+        // Original Balance expected now: - 10 ETH + 2 ETH
+        var originalETHBalance = web3.utils.fromWei(originalBalance, 'ether');
+        var expected = originalETHBalance - 10 + 2;
+        //console.log("EXPECTED: " + expected);
+
+        // As we need to account for gas usage
+        assert(originalETHBalance-8 >= expected);
+        assert(expected >= originalETHBalance-10);
+
+        // Withdraw all remaining funds
+        await disburse.withdrawTrustBalance({from: accounts[0]});
+    });
+
     it("can confirm beneficiary balance", async () => {
         var trustAddress = accounts[0];
         var beneficiaryAddress = accounts[1];
