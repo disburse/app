@@ -86,9 +86,14 @@ contract DisburseV1 {
         // Determine beneficiary disbursement date
         uint256 delayInSeconds = block.timestamp + _seconds;
 
-        // Get beneficiary id
-        uint256 id = topBeneficiaryId[trustAddress]; 
+        // Update to next available beneficiary id
+        // NOTE: Id's cannot start at 0, otherwise the return id of an existing
+        // address and non-existing address will look the same
+        topBeneficiaryId[trustAddress] += 1;
 
+        // Get beneficiary id
+        uint256 id = topBeneficiaryId[trustAddress];
+        
         // Create new beneficiary
         Beneficiary memory beneficiary = Beneficiary(
                                             id,
@@ -107,7 +112,6 @@ contract DisburseV1 {
         
         // Update total number of beneficiaries this trust is managing
         beneficiaryCount[trustAddress] += 1;
-        topBeneficiaryId[trustAddress] += 1;
     }
     
     // TEST:
@@ -141,21 +145,6 @@ contract DisburseV1 {
     }
 
     // TEST:
-    function removeBeneficiaryAtIndex(uint256 _index) public {
-        require(_index >= 1);
-        
-        Beneficiary memory beneficiary = indexedBeneficiaries[msg.sender][_index-1];
-        
-        // Reduce total beneficiary claims
-        beneficiaryBalance[msg.sender] -= beneficiary.amount;
-            
-        // Update total number of beneficiaries this trust is managing
-        beneficiaryCount[msg.sender] -= 1;
-        
-        // We never decrement the topBeneficiaryId, as this number must always increase
-    }
-
-    // TEST:
     function getBeneficiaryById(uint256 _id) public view returns(Beneficiary memory _beneficiary) {
         // Only trust owner can get details of beneficiary
         _beneficiary = indexedBeneficiaries[msg.sender][_id];
@@ -177,6 +166,7 @@ contract DisburseV1 {
     }
     
     // This function should be callable anyone, including an external job
+    // Beneficiary id's are not known by the general public
     function disburseFunds(address payable _beneficiaryAddress) public {
         
         bool passed = deadlinePassed(_beneficiaryAddress);
@@ -200,4 +190,37 @@ contract DisburseV1 {
             _beneficiaryAddress.transfer(disburseAmount);
         }
     }
+
+
+    function readyToDisburse(uint256 _id) public view returns (bool) {
+        
+        Beneficiary memory beneficiary = indexedBeneficiaries[msg.sender][_id];
+        
+        // Ensure deadline has been set && has passed
+        if (beneficiary.disburseDate != 0 && block.timestamp >= beneficiary.disburseDate) return true; 
+
+        return false; 
+    }   
+    
+    // What happens if we have the same beneficiary Address on two different disbursement dates?
+    // This implies there is more than one idea associated with an address.
+
+    function getBeneficiaryId(address _beneficiaryAddress) public view returns(uint256 _id) {
+        
+        // NOTE: Id's cannot be zero indexed, otherwise the return id of an existing
+        // address and non-existing address will look the same
+        
+        // Retrieve the Id of the last most beneficiary
+        uint256 topId = topBeneficiaryId[msg.sender];
+        
+        for (uint256 i=0; i<=topId; i++){
+            Beneficiary memory beneficiary = indexedBeneficiaries[msg.sender][i];
+            
+            if (beneficiary.beneficiaryAddress == _beneficiaryAddress){
+                _id = beneficiary.id;
+                break;
+            }
+        }
+    }
+    
 }
