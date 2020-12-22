@@ -5,6 +5,7 @@ pragma experimental ABIEncoderV2;
 contract DisburseV1 {
  
      struct Beneficiary { 
+        uint256 id;
         address trustAddress;
         address beneficiaryAddress;
         uint256 disburseDate;
@@ -24,6 +25,9 @@ contract DisburseV1 {
     
     // Mapping to record total beneficiaries for each trust
     mapping(address => uint256) beneficiaryCount;
+
+    // Mapping to record total beneficiaries for each trust
+    mapping(address => uint256) topBeneficiaryId;
 
     // Mapping the current beneficiary balance, which may be less than the trust balance
     mapping(address => uint256) beneficiaryBalance;
@@ -82,8 +86,12 @@ contract DisburseV1 {
         // Determine beneficiary disbursement date
         uint256 delayInSeconds = block.timestamp + _seconds;
 
+        // Get beneficiary id
+        uint256 id = topBeneficiaryId[trustAddress]; 
+
         // Create new beneficiary
         Beneficiary memory beneficiary = Beneficiary(
+                                            id,
                                             trustAddress, 
                                             _beneficiaryAddress, 
                                             delayInSeconds, 
@@ -94,19 +102,44 @@ contract DisburseV1 {
         // Add beneficiary to trust
         beneficiaries[trustAddress][_beneficiaryAddress] = beneficiary;
 
-        // TEST: an iterable version (beneficiaryCount updated above)
-        //Every key maps to something. If no value has been set yet, then the value is 0.
-        uint256 index = beneficiaryCount[trustAddress]; 
-        indexedBeneficiaries[trustAddress][index] = beneficiary;
+        //Every key maps to something. If no value has been set yet, then the value is 0. 
+        indexedBeneficiaries[trustAddress][id] = beneficiary;
+        
         // Update total number of beneficiaries this trust is managing
         beneficiaryCount[trustAddress] += 1;
+        topBeneficiaryId[trustAddress] += 1;
     }
     
     // TEST:
     function getBeneficiaryCount() public view returns(uint256 _count) {
         _count = beneficiaryCount[msg.sender];
     }
-    
+
+    // TEST:
+    function getTopBeneficiaryId() public view returns(uint256 _count) {
+        _count = topBeneficiaryId[msg.sender];
+    }
+
+    // TEST:
+    function removeBeneficiary(uint256 _id) public {
+        // Retrieve beneficiary address
+        Beneficiary memory beneficiary = indexedBeneficiaries[msg.sender][_id];
+
+        if (beneficiary.id == _id){
+            // Reduce total beneficiary claims
+            beneficiaryBalance[msg.sender] -= beneficiary.amount;
+            
+            // Update total number of beneficiaries this trust is managing
+            beneficiaryCount[msg.sender] -= 1;
+
+            // will delete the struct
+            delete beneficiaries[msg.sender][beneficiary.beneficiaryAddress];
+
+            // will delete the struct
+            delete indexedBeneficiaries[msg.sender][_id];
+        }
+    }
+
     // TEST:
     function removeBeneficiaryAtIndex(uint256 _index) public {
         require(_index >= 1);
@@ -118,12 +151,14 @@ contract DisburseV1 {
             
         // Update total number of beneficiaries this trust is managing
         beneficiaryCount[msg.sender] -= 1;
+        
+        // We never decrement the topBeneficiaryId, as this number must always increase
     }
 
     // TEST:
-    function getBeneficiaryAtIndex(uint256 _index) public view returns(Beneficiary memory _beneficiary) {
+    function getBeneficiaryById(uint256 _id) public view returns(Beneficiary memory _beneficiary) {
         // Only trust owner can get details of beneficiary
-        _beneficiary = indexedBeneficiaries[msg.sender][_index];
+        _beneficiary = indexedBeneficiaries[msg.sender][_id];
     }
 
     function getBeneficiary(address _beneficiaryAddress) public view returns(Beneficiary memory _beneficiary) {

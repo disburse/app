@@ -97,8 +97,10 @@ contract("Disburse V1", () => {
                             amount, 
                             {from: trustAddress});
         
-        var beneficiary = await disburse.getBeneficiaryAtIndex(0);
+        var id = await disburse.getTopBeneficiaryId({from: trustAddress}) - 1;
+        var beneficiary = await disburse.getBeneficiaryById(id, {from: trustAddress});
 
+        assert(beneficiary['id'] == id);
         assert(beneficiary['trustAddress'] == trustAddress);
         assert(beneficiary['beneficiaryAddress'] == beneficiaryAddress);
         assert(beneficiary['disburseDate'] > 0);
@@ -113,6 +115,48 @@ contract("Disburse V1", () => {
         assert(count == 0);
 
         await disburse.withdrawTrustBalance({from: trustAddress});
+    });
+
+    it("can remove beneficiary by id", async () => {
+        var trustAddress = accounts[0];
+        var beneficiary1 = accounts[1];
+        var beneficiary2 = accounts[2];
+        var delayInSeconds = 60;
+        var amount = web3.utils.toWei('2', 'ether');
+        
+        var weiAmount = web3.utils.toWei('10', 'ether');
+        await disburse.contributeToTrust({ from: trustAddress, value: weiAmount });
+
+        await disburse.addBeneficiary(
+                            beneficiary1, 
+                            delayInSeconds, 
+                            amount, 
+                            {from: trustAddress});
+
+        var id1 = await disburse.getTopBeneficiaryId({from: trustAddress}) - 1;
+        var beneficiary = await disburse.getBeneficiaryById(id1);
+        assert(beneficiary['id'] == id1);
+                                    
+        await disburse.addBeneficiary(
+                            beneficiary2, 
+                            delayInSeconds, 
+                            amount, 
+                            {from: trustAddress});
+
+        var id2 = await disburse.getTopBeneficiaryId({from: trustAddress}) - 1;
+        beneficiary = await disburse.getBeneficiaryById(id2);
+        assert(beneficiary['id'] == id2);
+
+        await disburse.removeBeneficiary(id2, {from: trustAddress});
+        var count = await disburse.getBeneficiaryCount({from: trustAddress});
+        assert(count == 1);
+
+        await disburse.removeBeneficiary(id1, {from: trustAddress});
+        var count = await disburse.getBeneficiaryCount({from: trustAddress});
+        assert(count == 0);
+
+        await disburse.withdrawTrustBalance({from: trustAddress});
+
     });
 
     it("can confirm beneficiary count", async () => {
@@ -130,7 +174,11 @@ contract("Disburse V1", () => {
                             delayInSeconds, 
                             amount, 
                             {from: trustAddress});
-        
+
+        var id1 = await disburse.getTopBeneficiaryId({from: trustAddress}) - 1;
+        var beneficiary = await disburse.getBeneficiaryById(id1);
+        assert(beneficiary['id'] == id1);
+                                                
         var count = await disburse.getBeneficiaryCount({from: trustAddress});
         assert(count == 1);
                             
@@ -140,11 +188,15 @@ contract("Disburse V1", () => {
                             amount, 
                             {from: trustAddress});
 
+        var id2 = await disburse.getTopBeneficiaryId({from: trustAddress}) - 1;
+        beneficiary = await disburse.getBeneficiaryById(id2);
+        assert(beneficiary['id'] == id2);
+
         var count = await disburse.getBeneficiaryCount({from: trustAddress});
         assert(count == 2);
 
-        await disburse.removeBeneficiaryAtIndex(2, {from: trustAddress});
-        await disburse.removeBeneficiaryAtIndex(1, {from: trustAddress});
+        await disburse.removeBeneficiaryAtIndex(id2, {from: trustAddress});
+        await disburse.removeBeneficiaryAtIndex(id1, {from: trustAddress});
         var count = await disburse.getBeneficiaryCount({from: trustAddress});
         assert(count == 0);
         await disburse.withdrawTrustBalance({from: trustAddress});
@@ -175,17 +227,19 @@ contract("Disburse V1", () => {
         var count = await disburse.getBeneficiaryCount({from: trustAddress});
         assert(count == 2);
 
-        var beneficiary = await disburse.getBeneficiaryAtIndex(0);
+        var id1 = await disburse.getTopBeneficiaryId({from: trustAddress}) - 2;
+        var id2 = id1 + 1;
+        var beneficiary = await disburse.getBeneficiaryById(id1);
         assert(beneficiary['trustAddress'] == trustAddress);
         assert(beneficiary['beneficiaryAddress'] == beneficiary1);
 
-        var beneficiary = await disburse.getBeneficiaryAtIndex(1);
+        var beneficiary = await disburse.getBeneficiaryById(id2);
         assert(beneficiary['trustAddress'] == trustAddress);
         assert(beneficiary['beneficiaryAddress'] == beneficiary2);
 
         // Cleanup
-        await disburse.removeBeneficiaryAtIndex(2, {from: trustAddress});
-        await disburse.removeBeneficiaryAtIndex(1, {from: trustAddress});
+        await disburse.removeBeneficiaryAtIndex(id1, {from: trustAddress});
+        await disburse.removeBeneficiaryAtIndex(id2, {from: trustAddress});
         await disburse.withdrawTrustBalance({from: trustAddress});
     });
 
