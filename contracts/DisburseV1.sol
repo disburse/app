@@ -14,11 +14,8 @@ contract DisburseV1 {
         bool invest;
     }
 
-    // TEST: Mapping that outlines how funds should be disbursed to beneficiaries
-    mapping(address => mapping(uint256 => Beneficiary)) indexedBeneficiaries;
-
     // Mapping that outlines how funds should be disbursed to beneficiaries
-    mapping(address => mapping(address => Beneficiary)) beneficiaries;
+    mapping(address => mapping(uint256 => Beneficiary)) beneficiaries;
 
     // Mapping that records total trust balance
     mapping(address => uint256) trustBalance;
@@ -104,30 +101,27 @@ contract DisburseV1 {
                                             false, 
                                             false);
         
-        // Add beneficiary to trust
-        beneficiaries[trustAddress][_beneficiaryAddress] = beneficiary;
-
-        //Every key maps to something. If no value has been set yet, then the value is 0. 
-        indexedBeneficiaries[trustAddress][id] = beneficiary;
+        // Every key maps to something. If no value has been set yet, then the value is 0. 
+        beneficiaries[trustAddress][id] = beneficiary;
         
         // Update total number of beneficiaries this trust is managing
         beneficiaryCount[trustAddress] += 1;
     }
     
-    // TEST:
+    // Retrieve total number of beneficiaries of a partricular trust account
     function getBeneficiaryCount() public view returns(uint256 _count) {
         _count = beneficiaryCount[msg.sender];
     }
 
-    // TEST:
+    // Counter that increments the id's of beneficiaries
     function getTopBeneficiaryId() public view returns(uint256 _count) {
         _count = topBeneficiaryId[msg.sender];
     }
 
-    // TEST:
+    // Remove beneficiary at a unique id
     function removeBeneficiary(uint256 _id) public {
         // Retrieve beneficiary address
-        Beneficiary memory beneficiary = indexedBeneficiaries[msg.sender][_id];
+        Beneficiary memory beneficiary = beneficiaries[msg.sender][_id];
 
         if (beneficiary.id == _id){
             // Reduce total beneficiary claims
@@ -137,64 +131,20 @@ contract DisburseV1 {
             beneficiaryCount[msg.sender] -= 1;
 
             // will delete the struct
-            delete beneficiaries[msg.sender][beneficiary.beneficiaryAddress];
-
-            // will delete the struct
-            delete indexedBeneficiaries[msg.sender][_id];
+            delete beneficiaries[msg.sender][_id];
         }
     }
 
-    // TEST:
-    function getBeneficiaryById(uint256 _id) public view returns(Beneficiary memory _beneficiary) {
+    // Retrieve beneficiary based on it's unique id
+    function getBeneficiary(uint256 _id) public view returns(Beneficiary memory _beneficiary) {
         // Only trust owner can get details of beneficiary
-        _beneficiary = indexedBeneficiaries[msg.sender][_id];
+        _beneficiary = beneficiaries[msg.sender][_id];
     }
 
-    function getBeneficiary(address _beneficiaryAddress) public view returns(Beneficiary memory _beneficiary) {
-        // Only trust owner can get details of beneficiary
-        _beneficiary = beneficiaries[msg.sender][_beneficiaryAddress];
-    }
-    
-    function deadlinePassed(address _beneficiaryAddress) public view returns (bool) {
-        
-        Beneficiary memory beneficiary = getBeneficiary(_beneficiaryAddress);
-        
-        // Ensure deadline has been set && has passed
-        if (beneficiary.disburseDate != 0 && block.timestamp >= beneficiary.disburseDate) return true; 
-
-        return false; 
-    }
-    
-    // This function should be callable anyone, including an external job
-    // Beneficiary id's are not known by the general public
-    function disburseFunds(address payable _beneficiaryAddress) public {
-        
-        bool passed = deadlinePassed(_beneficiaryAddress);
-        
-        if (passed) {
-            
-            Beneficiary memory beneficiary = getBeneficiary(_beneficiaryAddress);
-            uint256 disburseAmount = beneficiary.amount;
-            
-            // Reduce trust balance
-            trustBalance[beneficiary.trustAddress] -= disburseAmount;
-            
-            // Reduce total beneficiary claims
-            beneficiaryBalance[beneficiary.trustAddress] -= disburseAmount;
-            
-            // Reset the beneficiary amount and disbursement date
-            beneficiaries[beneficiary.trustAddress][_beneficiaryAddress].amount = 0;
-            beneficiaries[beneficiary.trustAddress][_beneficiaryAddress].disburseDate = 0;
-        
-            // Finally, disburse funds to beneficiary
-            _beneficiaryAddress.transfer(disburseAmount);
-        }
-    }
-
-
+    // Determine if the disbursement date has passed
     function readyToDisburse(uint256 _id) public view returns (bool) {
         
-        Beneficiary memory beneficiary = indexedBeneficiaries[msg.sender][_id];
+        Beneficiary memory beneficiary = beneficiaries[msg.sender][_id];
         
         // Ensure deadline has been set && has passed
         if (beneficiary.disburseDate != 0 && block.timestamp >= beneficiary.disburseDate) return true; 
@@ -214,7 +164,7 @@ contract DisburseV1 {
         uint256 topId = topBeneficiaryId[msg.sender];
         
         for (uint256 i=0; i<=topId; i++){
-            Beneficiary memory beneficiary = indexedBeneficiaries[msg.sender][i];
+            Beneficiary memory beneficiary = beneficiaries[msg.sender][i];
             
             if (beneficiary.beneficiaryAddress == _beneficiaryAddress){
                 _id = beneficiary.id;
@@ -222,5 +172,31 @@ contract DisburseV1 {
             }
         }
     }
-    
+
+    // This function should be callable anyone, including an external job
+    // Beneficiary id's are not known by the general public
+    function disburseFunds(address payable _beneficiaryAddress) public {
+        
+        uint256 id = getBeneficiaryId(_beneficiaryAddress);
+        bool passed = readyToDisburse(id);
+        
+        if (passed) {
+            
+            Beneficiary memory beneficiary = getBeneficiary(id);
+            uint256 disburseAmount = beneficiary.amount;
+            
+            // Reduce trust balance
+            trustBalance[beneficiary.trustAddress] -= disburseAmount;
+            
+            // Reduce total beneficiary claims
+            beneficiaryBalance[beneficiary.trustAddress] -= disburseAmount;
+            
+            // Reset the beneficiary amount and disbursement date
+            beneficiaries[beneficiary.trustAddress][id].amount = 0;
+            beneficiaries[beneficiary.trustAddress][id].disburseDate = 0;
+        
+            // Finally, disburse funds to beneficiary
+            _beneficiaryAddress.transfer(disburseAmount);
+        }
+    }
 }

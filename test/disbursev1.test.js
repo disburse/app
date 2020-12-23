@@ -100,7 +100,7 @@ contract("Disburse V1", () => {
                             {from: trustAddress});
         
         var id = await disburse.getBeneficiaryId(beneficiaryAddress, {from: trustAddress});
-        var beneficiary = await disburse.getBeneficiaryById(id, {from: trustAddress});
+        var beneficiary = await disburse.getBeneficiary(id, {from: trustAddress});
 
         assert(beneficiary['id'] == id);
         assert(beneficiary['trustAddress'] == trustAddress);
@@ -137,7 +137,7 @@ contract("Disburse V1", () => {
                             {from: trustAddress});
 
         var id1 = await disburse.getBeneficiaryId(beneficiary1, {from: trustAddress});
-        var beneficiary = await disburse.getBeneficiaryById(id1);
+        var beneficiary = await disburse.getBeneficiary(id1);
         assert(beneficiary['id'] == id1);
                                                 
         var count = await disburse.getBeneficiaryCount({from: trustAddress});
@@ -150,7 +150,7 @@ contract("Disburse V1", () => {
                             {from: trustAddress});
 
         var id2 = await disburse.getBeneficiaryId(beneficiary2, {from: trustAddress});
-        beneficiary = await disburse.getBeneficiaryById(id2);
+        beneficiary = await disburse.getBeneficiary(id2);
         assert(beneficiary['id'] == id2);
 
         var count = await disburse.getBeneficiaryCount({from: trustAddress});
@@ -191,11 +191,11 @@ contract("Disburse V1", () => {
         var id1 = await disburse.getBeneficiaryId(beneficiary1, {from: trustAddress});
         var id2 = await disburse.getBeneficiaryId(beneficiary2, {from: trustAddress});
 
-        var beneficiary = await disburse.getBeneficiaryById(id1);
+        var beneficiary = await disburse.getBeneficiary(id1);
         assert(beneficiary['trustAddress'] == trustAddress);
         assert(beneficiary['beneficiaryAddress'] == beneficiary1);
 
-        var beneficiary = await disburse.getBeneficiaryById(id2);
+        var beneficiary = await disburse.getBeneficiary(id2);
         assert(beneficiary['trustAddress'] == trustAddress);
         assert(beneficiary['beneficiaryAddress'] == beneficiary2);
 
