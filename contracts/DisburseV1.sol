@@ -10,8 +10,7 @@ contract DisburseV1 {
         address beneficiaryAddress;
         uint256 disburseDate;
         uint256 amount;
-        bool backup;
-        bool invest;
+        bool complete;
     }
 
     // Mapping that outlines how funds should be disbursed to beneficiaries
@@ -98,7 +97,6 @@ contract DisburseV1 {
                                             _beneficiaryAddress, 
                                             delayInSeconds, 
                                             _amount, 
-                                            false, 
                                             false);
         
         // Every key maps to something. If no value has been set yet, then the value is 0. 
@@ -140,17 +138,6 @@ contract DisburseV1 {
         // Only trust owner can get details of beneficiary
         _beneficiary = beneficiaries[msg.sender][_id];
     }
-
-    // Determine if the disbursement date has passed
-    function readyToDisburse(uint256 _id) public view returns (bool) {
-        
-        Beneficiary memory beneficiary = beneficiaries[msg.sender][_id];
-        
-        // Ensure deadline has been set && has passed
-        if (beneficiary.disburseDate != 0 && block.timestamp >= beneficiary.disburseDate) return true; 
-
-        return false; 
-    }   
     
     // What happens if we have the same beneficiary Address on two different disbursement dates?
     // This implies there is more than one idea associated with an address.
@@ -163,8 +150,8 @@ contract DisburseV1 {
         // Retrieve the Id of the last most beneficiary
         uint256 topId = topBeneficiaryId[msg.sender];
         
-        for (uint256 i=0; i<=topId; i++){
-            Beneficiary memory beneficiary = beneficiaries[msg.sender][i];
+        for (uint256 id = 0; id <= topId; id++){
+            Beneficiary memory beneficiary = beneficiaries[msg.sender][id];
             
             if (beneficiary.beneficiaryAddress == _beneficiaryAddress){
                 _id = beneficiary.id;
@@ -173,30 +160,41 @@ contract DisburseV1 {
         }
     }
 
-    // This function should be callable anyone, including an external job
+    // Determine if the disbursement date has passed
+    function readyToDisburse(uint256 _id) public view returns (bool) {
+        
+        Beneficiary memory beneficiary = beneficiaries[msg.sender][_id];
+        
+        // Ensure deadline has been set && has passed
+        if (beneficiary.disburseDate != 0 && block.timestamp >= beneficiary.disburseDate) return true; 
+
+        return false; 
+    }  
+
+    // TODO: This function should be callable anyone, including an external job
+    // As coded, this function is only callable by the trust owner
     // Beneficiary id's are not known by the general public
-    function disburseFunds(address payable _beneficiaryAddress) public {
+    function disburseFunds(uint256 _id) public {
         
-        uint256 id = getBeneficiaryId(_beneficiaryAddress);
-        bool passed = readyToDisburse(id);
-        
-        if (passed) {
+        Beneficiary memory beneficiary = beneficiaries[msg.sender][_id];
+        bool passedDisbursementDate = readyToDisburse(_id);
+
+        if (beneficiary.complete == false && passedDisbursementDate) {
             
-            Beneficiary memory beneficiary = getBeneficiary(id);
-            uint256 disburseAmount = beneficiary.amount;
+            address payable beneficiaryAddress = payable(beneficiary.beneficiaryAddress);
+            uint256 amount = beneficiary.amount;
             
             // Reduce trust balance
-            trustBalance[beneficiary.trustAddress] -= disburseAmount;
+            trustBalance[beneficiary.trustAddress] -= amount;
             
             // Reduce total beneficiary claims
-            beneficiaryBalance[beneficiary.trustAddress] -= disburseAmount;
+            beneficiaryBalance[beneficiary.trustAddress] -= amount;
             
-            // Reset the beneficiary amount and disbursement date
-            beneficiaries[beneficiary.trustAddress][id].amount = 0;
-            beneficiaries[beneficiary.trustAddress][id].disburseDate = 0;
-        
+            // Set the complete flag to true
+            beneficiaries[beneficiary.trustAddress][_id].complete = true;
+
             // Finally, disburse funds to beneficiary
-            _beneficiaryAddress.transfer(disburseAmount);
+            beneficiaryAddress.transfer(amount);
         }
     }
 }
