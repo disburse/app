@@ -122,14 +122,20 @@ contract DisburseV1 {
         Beneficiary memory beneficiary = beneficiaries[msg.sender][_id];
 
         if (beneficiary.id == _id){
-            // Reduce total beneficiary claims
-            beneficiaryBalance[msg.sender] -= beneficiary.amount;
-            
-            // Update total number of beneficiaries this trust is managing
-            beneficiaryCount[msg.sender] -= 1;
 
-            // will delete the struct
-            delete beneficiaries[msg.sender][_id];
+            bool passedDisbursementDate = readyToDisburse(_id);
+
+            // If the disbursement date has already passed, deletion of beneficiary is not permitted
+            if (!passedDisbursementDate){
+                // Reduce total beneficiary claims
+                beneficiaryBalance[msg.sender] -= beneficiary.amount;
+                
+                // Update total number of beneficiaries this trust is managing
+                beneficiaryCount[msg.sender] -= 1;
+
+                // will delete the struct
+                delete beneficiaries[msg.sender][_id];
+            }
         }
     }
 
