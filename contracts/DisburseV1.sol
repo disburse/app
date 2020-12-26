@@ -13,20 +13,35 @@ contract DisburseV1 {
         bool complete;
     }
 
+    struct Disbursement { 
+        uint256 id;
+        address trustAddress;
+        uint256 beneficiaryId;
+    }
+
     // Mapping that outlines how funds should be disbursed to beneficiaries
     mapping(address => mapping(uint256 => Beneficiary)) beneficiaries;
+
+    // Mapping to record total beneficiaries for each trust
+    mapping(address => uint256) beneficiaryCount;
+
+    // Mapping to record last beneficiary id for each trust
+    mapping(address => uint256) topBeneficiaryId;
 
     // Mapping that records total trust balance
     mapping(address => uint256) trustBalance;
     
-    // Mapping to record total beneficiaries for each trust
-    mapping(address => uint256) beneficiaryCount;
-
-    // Mapping to record total beneficiaries for each trust
-    mapping(address => uint256) topBeneficiaryId;
-
     // Mapping the current beneficiary balance, which may be less than the trust balance
     mapping(address => uint256) beneficiaryBalance;
+
+    // Mapping that outlines all upcoming disbursements to beneficiaries
+    mapping(address => mapping(uint256 => Disbursement)) public disbursements;
+
+    // Mapping to record total disbursements for each beneficiary
+    mapping(address => uint256) public disbursementCount;
+
+    // Mapping to record last disbursement id for each beneficiary
+    mapping(address => uint256) public topDisbursementId;
 
     function contributeToTrust() public payable {
         trustBalance[msg.sender] += msg.value;  // Add funds to any previous funds
@@ -88,22 +103,49 @@ contract DisburseV1 {
         topBeneficiaryId[trustAddress] += 1;
 
         // Get beneficiary id
-        uint256 id = topBeneficiaryId[trustAddress];
-        
+        uint256 beneficiaryId = topBeneficiaryId[trustAddress];
+
         // Create new beneficiary
         Beneficiary memory beneficiary = Beneficiary(
-                                            id,
+                                            beneficiaryId,
                                             trustAddress, 
                                             _beneficiaryAddress, 
                                             delayInSeconds, 
                                             _amount, 
                                             false);
-        
+                                            
+
         // Every key maps to something. If no value has been set yet, then the value is 0. 
-        beneficiaries[trustAddress][id] = beneficiary;
-        
+        beneficiaries[trustAddress][beneficiaryId] = beneficiary;
+
         // Update total number of beneficiaries this trust is managing
         beneficiaryCount[trustAddress] += 1;
+
+        // Add disbursement
+        addDisbursement(trustAddress, beneficiaryId, _beneficiaryAddress);
+    }
+    
+    // Add a disbursement once a new beneficiary has been added 
+    function addDisbursement(address _trustAddress, uint256 _beneficiaryId, address _beneficiaryAddress) internal {
+
+        // Update to next available disbursement id
+        topDisbursementId[_beneficiaryAddress] += 1;        
+        
+        // Get disbursement id that was just incremented
+        uint256 disbursementId = topDisbursementId[_beneficiaryAddress];
+
+        // Create new disbursement
+        Disbursement memory disbursement = Disbursement(
+                                            disbursementId,
+                                            _trustAddress, 
+                                            _beneficiaryId);
+
+         // Every key maps to something. If no value has been set yet, then the value is 0. 
+        disbursements[_beneficiaryAddress][disbursementId] = disbursement;
+        
+        // Update total number of disbursements this beneficiary is managing
+        disbursementCount[_beneficiaryAddress] += 1;    
+        
     }
     
     // Retrieve total number of beneficiaries of a partricular trust account
@@ -117,13 +159,15 @@ contract DisburseV1 {
     }
 
     // Remove beneficiary at a unique id
-    function removeBeneficiary(uint256 _id) public {
+    function removeBeneficiary(uint256 _beneficiaryId) public {
         // Retrieve beneficiary address
-        Beneficiary memory beneficiary = beneficiaries[msg.sender][_id];
+        Beneficiary memory beneficiary = beneficiaries[msg.sender][_beneficiaryId];
+        
+        uint256 disbursementId = getDisbursementId(msg.sender, _beneficiaryId);
+        
+        if (beneficiary.id == _beneficiaryId){
 
-        if (beneficiary.id == _id){
-
-            bool passedDisbursementDate = readyToDisburse(_id);
+            bool passedDisbursementDate = readyToDisburse(_beneficiaryId);
 
             // If the disbursement date has already passed, deletion of beneficiary is not permitted
             if (!passedDisbursementDate){
@@ -133,8 +177,15 @@ contract DisburseV1 {
                 // Update total number of beneficiaries this trust is managing
                 beneficiaryCount[msg.sender] -= 1;
 
-                // will delete the struct
-                delete beneficiaries[msg.sender][_id];
+                // Update total number of disbursements tied to this beneficiary
+                disbursementCount[beneficiary.beneficiaryAddress] -= 1;
+
+                // will delete the struct.  
+                // This deletion must occur BEFORE the beneficiary deletion, otherwise address will not existing
+                delete disbursements[beneficiary.beneficiaryAddress][disbursementId];
+                
+                 // will delete the struct
+                delete beneficiaries[msg.sender][_beneficiaryId];
             }
         }
     }
@@ -145,8 +196,8 @@ contract DisburseV1 {
         _beneficiary = beneficiaries[msg.sender][_id];
     }
     
-    // What happens if we have the same beneficiary Address on two different disbursement dates?
-    // This implies there is more than one idea associated with an address.
+    // TODO FIX: What happens if we have the same beneficiary Address on two different disbursement dates?
+    // This implies there is more than one ID associated with an address.
 
     function getBeneficiaryId(address _beneficiaryAddress) public view returns(uint256 _id) {
         
@@ -161,6 +212,26 @@ contract DisburseV1 {
             
             if (beneficiary.beneficiaryAddress == _beneficiaryAddress){
                 _id = beneficiary.id;
+                break;
+            }
+        }
+    }
+
+    // Retrieve the disbursement ID associated with a given beneficiary ID
+    function getDisbursementId(address _trustAddress, uint256 _beneficiaryId) public view returns(uint256 _id) {
+        
+        // Retrieve Beneficiary
+        Beneficiary memory beneficiary = beneficiaries[_trustAddress][_beneficiaryId];
+        
+        // Retrieve the Id of the last disbursement
+        uint256 topId = topDisbursementId[beneficiary.beneficiaryAddress];
+        
+        for (uint256 id = 0; id <= topId; id++){
+            
+            Disbursement memory disbursement = disbursements[beneficiary.beneficiaryAddress][id];
+            
+            if (disbursement.beneficiaryId == _beneficiaryId) {
+                _id = disbursement.id;
                 break;
             }
         }
