@@ -19,6 +19,11 @@ contract DisburseV1 {
         uint256 beneficiaryId;
     }
 
+    // Events:
+    event DisburseFundsEvent(address from, address to, uint256 amount);
+    event DisbursementCompleteEvent(bool flag);
+    event DisbursementReadyEvent(bool flag);
+
     // Mapping that outlines how funds should be disbursed to beneficiaries
     mapping(address => mapping(uint256 => Beneficiary)) beneficiaries;
 
@@ -160,22 +165,24 @@ contract DisburseV1 {
 
     // Remove beneficiary at a unique id
     function removeBeneficiary(uint256 _beneficiaryId) public {
+
+        address _trustAddress = msg.sender;
         // Retrieve beneficiary address
-        Beneficiary memory beneficiary = beneficiaries[msg.sender][_beneficiaryId];
+        Beneficiary memory beneficiary = beneficiaries[_trustAddress][_beneficiaryId];
         
-        uint256 disbursementId = getDisbursementId(msg.sender, _beneficiaryId);
+        uint256 disbursementId = getDisbursementId(_trustAddress, _beneficiaryId);
         
         if (beneficiary.id == _beneficiaryId){
 
-            bool passedDisbursementDate = readyToDisburse(_beneficiaryId);
+            bool passedDisbursementDate = readyToDisburse(_trustAddress, _beneficiaryId);
 
             // If the disbursement date has already passed, deletion of beneficiary is not permitted
             if (!passedDisbursementDate){
                 // Reduce total beneficiary claims
-                beneficiaryBalance[msg.sender] -= beneficiary.amount;
+                beneficiaryBalance[_trustAddress] -= beneficiary.amount;
                 
                 // Update total number of beneficiaries this trust is managing
-                beneficiaryCount[msg.sender] -= 1;
+                beneficiaryCount[_trustAddress] -= 1;
 
                 // Update total number of disbursements tied to this beneficiary
                 disbursementCount[beneficiary.beneficiaryAddress] -= 1;
@@ -185,7 +192,7 @@ contract DisburseV1 {
                 delete disbursements[beneficiary.beneficiaryAddress][disbursementId];
                 
                  // will delete the struct
-                delete beneficiaries[msg.sender][_beneficiaryId];
+                delete beneficiaries[_trustAddress][_beneficiaryId];
             }
         }
     }
@@ -210,7 +217,8 @@ contract DisburseV1 {
         for (uint256 id = 0; id <= topId; id++){
             Beneficiary memory beneficiary = beneficiaries[msg.sender][id];
             
-            if (beneficiary.beneficiaryAddress == _beneficiaryAddress){
+            if ((beneficiary.beneficiaryAddress == _beneficiaryAddress) &&
+                (beneficiary.complete == false)){
                 _id = beneficiary.id;
                 break;
             }
@@ -238,9 +246,9 @@ contract DisburseV1 {
     }
 
     // Determine if the disbursement date has passed
-    function readyToDisburse(uint256 _id) public view returns (bool) {
+    function readyToDisburse(address _trustAddress, uint256 _id) public view returns (bool) {
         
-        Beneficiary memory beneficiary = beneficiaries[msg.sender][_id];
+        Beneficiary memory beneficiary = beneficiaries[_trustAddress][_id];
         
         // Ensure deadline has been set && has passed
         if (beneficiary.disburseDate != 0 && block.timestamp >= beneficiary.disburseDate) return true; 
@@ -248,16 +256,18 @@ contract DisburseV1 {
         return false; 
     }  
 
-    // TODO: This function should be callable anyone, including an external job
-    // As coded, this function is only callable by the trust owner
-    // Beneficiary id's are not known by the general public
-    function disburseFunds(uint256 _id) public {
+    // This function should be callable anyone, including the beneficiary
+    function disburseFunds(address _trustAddress, uint256 _beneficiaryId) public {
         
-        Beneficiary memory beneficiary = beneficiaries[msg.sender][_id];
-        bool passedDisbursementDate = readyToDisburse(_id);
+        Beneficiary memory beneficiary = beneficiaries[_trustAddress][_beneficiaryId];
+        bool passedDisbursementDate = readyToDisburse(_trustAddress, _beneficiaryId);
+
+        emit DisburseFundsEvent(_trustAddress, beneficiary.beneficiaryAddress, beneficiary.amount);
+        emit DisbursementCompleteEvent(beneficiary.complete);
+        emit DisbursementReadyEvent(passedDisbursementDate);
 
         if (beneficiary.complete == false && passedDisbursementDate) {
-            
+
             address payable beneficiaryAddress = payable(beneficiary.beneficiaryAddress);
             uint256 amount = beneficiary.amount;
             
@@ -268,7 +278,7 @@ contract DisburseV1 {
             beneficiaryBalance[beneficiary.trustAddress] -= amount;
             
             // Set the complete flag to true
-            beneficiaries[beneficiary.trustAddress][_id].complete = true;
+            beneficiaries[beneficiary.trustAddress][_beneficiaryId].complete = true;
 
             // Finally, disburse funds to beneficiary
             beneficiaryAddress.transfer(amount);

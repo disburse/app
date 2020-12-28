@@ -253,10 +253,10 @@ contract("Disburse V1", () => {
         }
     });
 
-    it("can test disburse funds", async () => {
+    it("can test disburse funds by beneficiary", async () => {
 
         var trustAddress = accounts[0];
-        var beneficiary = accounts[1];
+        var beneficiaryAddress = accounts[1];
         var delayInSeconds = 0;
         var amount = web3.utils.toWei('2', 'ether');
         
@@ -264,17 +264,19 @@ contract("Disburse V1", () => {
         await disburse.contributeToTrust({ from: trustAddress, value: weiAmount });
 
         await disburse.addBeneficiary(
-                            beneficiary, 
+                            beneficiaryAddress, 
                             delayInSeconds, 
                             amount, 
                             {from: trustAddress});
 
-        var id = await disburse.getBeneficiaryId(beneficiary, {from: trustAddress});
-        var ready = await disburse.readyToDisburse(id, { from: trustAddress});
+        var id = await disburse.getBeneficiaryId(beneficiaryAddress, {from: trustAddress});
+        var ready = await disburse.readyToDisburse(trustAddress, id, { from: trustAddress});
         assert(ready);
 
-        await disburse.disburseFunds(id, { from: trustAddress});
-        var newBalance = await web3.eth.getBalance(beneficiary);
+        // Disburse funds is being called by the beneficiary address
+        await disburse.disburseFunds(trustAddress, id, { from: beneficiaryAddress});
+        
+        var newBalance = await web3.eth.getBalance(beneficiaryAddress);
         var newETHBalance = web3.utils.fromWei(newBalance, 'ether');
         assert(newETHBalance > 100);
 
@@ -282,7 +284,43 @@ contract("Disburse V1", () => {
         await disburse.removeBeneficiary(id, {from: trustAddress});
         await disburse.withdrawTrustBalance({from: trustAddress});
 
-        // TODO: Send balance of beneficiary back to trust
+        // Send balance of beneficiary back to trust
+        await web3.eth.sendTransaction({to:trustAddress, from:beneficiaryAddress, value:web3.utils.toWei("2", "ether")});
+    });
+
+    it("can test disburse funds by trust owner", async () => {
+
+        var trustAddress = accounts[0];
+        var beneficiaryAddress = accounts[1];
+        var delayInSeconds = 0;
+        var amount = web3.utils.toWei('2', 'ether');
+        
+        var weiAmount = web3.utils.toWei('10', 'ether');
+        await disburse.contributeToTrust({ from: trustAddress, value: weiAmount });
+
+        await disburse.addBeneficiary(
+                            beneficiaryAddress, 
+                            delayInSeconds, 
+                            amount, 
+                            {from: trustAddress});
+
+        var id = await disburse.getBeneficiaryId(beneficiaryAddress, {from: trustAddress});
+
+        var ready = await disburse.readyToDisburse(trustAddress, id, { from: trustAddress});
+        assert(ready);
+
+        // Disburse funds is being called by the trust owner address
+        await disburse.disburseFunds(trustAddress, id, { from: trustAddress});
+        var newBalance = await web3.eth.getBalance(beneficiaryAddress);
+        var newETHBalance = web3.utils.fromWei(newBalance, 'ether');
+        assert(newETHBalance > 100);
+
+        // Cleanup
+        await disburse.removeBeneficiary(id, {from: trustAddress});
+        await disburse.withdrawTrustBalance({from: trustAddress});
+
+        // Send balance of beneficiary back to trust
+        await web3.eth.sendTransaction({to:trustAddress, from:beneficiaryAddress, value:web3.utils.toWei("2", "ether")});
     });
 
     /*
