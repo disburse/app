@@ -10,6 +10,7 @@ contract DisburseV1 {
         address beneficiaryAddress;
         uint256 disburseDate;
         uint256 amount;
+        bool cancelAllowed;
         bool complete;
     }
 
@@ -23,6 +24,8 @@ contract DisburseV1 {
     event DisburseFundsEvent(address from, address to, uint256 amount);
     event DisbursementCompleteEvent(bool flag);
     event DisbursementReadyEvent(bool flag);
+    event CancelAllowed(bool flag);
+    event RemoveBeneficiary(bool flag);
 
     // Mapping that outlines how funds should be disbursed to beneficiaries
     mapping(address => mapping(uint256 => Beneficiary)) beneficiaries;
@@ -74,16 +77,16 @@ contract DisburseV1 {
         _balance = address(this).balance;
     }
 
-    function addBeneficiarySeconds(address _beneficiaryAddress, uint256 _seconds, uint256 _amount) public {
-        addBeneficiary(_beneficiaryAddress, _seconds, _amount);
+    function addBeneficiarySeconds(address _beneficiaryAddress, uint256 _seconds, uint256 _amount, bool _cancelAllowed) public {
+        addBeneficiary(_beneficiaryAddress, _seconds, _amount, _cancelAllowed);
     }
 
-    function addBeneficiaryDays(address _beneficiaryAddress, uint256 _days, uint256 _amount) public {
+    function addBeneficiaryDays(address _beneficiaryAddress, uint256 _days, uint256 _amount, bool _cancelAllowed) public {
         uint256 sec =  _days * 86400;               // Determine number of seconds
-        addBeneficiary(_beneficiaryAddress, sec, _amount);
+        addBeneficiary(_beneficiaryAddress, sec, _amount, _cancelAllowed);
     }
 
-    function addBeneficiary(address _beneficiaryAddress, uint256 _seconds, uint256 _amount) public {
+    function addBeneficiary(address _beneficiaryAddress, uint256 _seconds, uint256 _amount, bool _cancelAllowed) public {
         
         // Only trust owner can add beneficiary 
         address trustAddress = msg.sender;
@@ -117,6 +120,7 @@ contract DisburseV1 {
                                             _beneficiaryAddress, 
                                             delayInSeconds, 
                                             _amount, 
+                                            _cancelAllowed,
                                             false);
                                             
 
@@ -161,40 +165,6 @@ contract DisburseV1 {
     // Counter that increments the id's of beneficiaries
     function getTopBeneficiaryId() public view returns(uint256 _count) {
         _count = topBeneficiaryId[msg.sender];
-    }
-
-    // Remove beneficiary at a unique id
-    function removeBeneficiary(uint256 _beneficiaryId) public {
-
-        address _trustAddress = msg.sender;
-        // Retrieve beneficiary address
-        Beneficiary memory beneficiary = beneficiaries[_trustAddress][_beneficiaryId];
-        
-        uint256 disbursementId = getDisbursementId(_trustAddress, _beneficiaryId);
-        
-        if (beneficiary.id == _beneficiaryId){
-
-            bool passedDisbursementDate = readyToDisburse(_trustAddress, _beneficiaryId);
-
-            // If the disbursement date has already passed, deletion of beneficiary is not permitted
-            if (!passedDisbursementDate){
-                // Reduce total beneficiary claims
-                beneficiaryBalance[_trustAddress] -= beneficiary.amount;
-                
-                // Update total number of beneficiaries this trust is managing
-                beneficiaryCount[_trustAddress] -= 1;
-
-                // Update total number of disbursements tied to this beneficiary
-                disbursementCount[beneficiary.beneficiaryAddress] -= 1;
-
-                // will delete the struct.  
-                // This deletion must occur BEFORE the beneficiary deletion, otherwise address will not existing
-                delete disbursements[beneficiary.beneficiaryAddress][disbursementId];
-                
-                 // will delete the struct
-                delete beneficiaries[_trustAddress][_beneficiaryId];
-            }
-        }
     }
 
     // Retrieve beneficiary based on it's unique id
@@ -257,6 +227,8 @@ contract DisburseV1 {
     }  
 
     // This function should be callable anyone, including the beneficiary
+    // This function will only execute AFTER the disbursement date, unlike removeBeneficiary which
+    // executes BEFORE the disbursement date. 
     function disburseFunds(address _trustAddress, uint256 _beneficiaryId) public {
         
         Beneficiary memory beneficiary = beneficiaries[_trustAddress][_beneficiaryId];
@@ -266,6 +238,7 @@ contract DisburseV1 {
         emit DisbursementCompleteEvent(beneficiary.complete);
         emit DisbursementReadyEvent(passedDisbursementDate);
 
+        // Will only execute AFTER disbursement date
         if (beneficiary.complete == false && passedDisbursementDate) {
 
             address payable beneficiaryAddress = payable(beneficiary.beneficiaryAddress);
@@ -277,6 +250,14 @@ contract DisburseV1 {
             // Reduce total beneficiary claims
             beneficiaryBalance[beneficiary.trustAddress] -= amount;
             
+            // Update total number of ACTIVE beneficiaries this trust is managing
+            // This does not delete the history in the mapping
+            beneficiaryCount[_trustAddress] -= 1;
+
+            // Update total number of ACTIVE disbursements tied to this beneficiary
+            // This does not delete the history in the mapping
+            disbursementCount[beneficiary.beneficiaryAddress] -= 1;
+
             // Set the complete flag to true
             beneficiaries[beneficiary.trustAddress][_beneficiaryId].complete = true;
 
@@ -284,4 +265,47 @@ contract DisburseV1 {
             beneficiaryAddress.transfer(amount);
         }
     }
+
+    // Remove beneficiary at a unique id
+    // This function will only execute BEFORE the disbursement date, unlike disburseFunds which
+    // executes AFTER the disbursement date.
+    function removeBeneficiary(uint256 _beneficiaryId) public {
+
+        address _trustAddress = msg.sender;
+        // Retrieve beneficiary address
+        Beneficiary memory beneficiary = beneficiaries[_trustAddress][_beneficiaryId];
+    
+        if ((beneficiary.id == _beneficiaryId)  && (beneficiary.cancelAllowed == true)) {
+
+            bool passedDisbursementDate = readyToDisburse(_trustAddress, _beneficiaryId);
+
+            // Will only execute BEFORE disbursement date
+            if (!passedDisbursementDate) {
+                
+                // Reduce total beneficiary claims
+                beneficiaryBalance[_trustAddress] -= beneficiary.amount;
+                
+                // Update total number of beneficiaries this trust is managing
+                beneficiaryCount[_trustAddress] -= 1;
+
+                // Update total number of disbursements tied to this beneficiary
+                disbursementCount[beneficiary.beneficiaryAddress] -= 1;
+
+                uint256 disbursementId = getDisbursementId(_trustAddress, _beneficiaryId);
+
+                // will delete the struct.  
+                // This deletion must occur BEFORE the beneficiary deletion, otherwise address will not existing
+                delete disbursements[beneficiary.beneficiaryAddress][disbursementId];
+                
+                 // will delete the struct
+                delete beneficiaries[_trustAddress][_beneficiaryId];
+
+                emit RemoveBeneficiary(true);
+            }
+        }
+        else{
+            emit RemoveBeneficiary(false);
+        }
+    }
+
 }

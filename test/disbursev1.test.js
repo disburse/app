@@ -69,6 +69,7 @@ contract("Disburse V1", () => {
                             beneficiaryAddress, 
                             delayInSeconds, 
                             amount, 
+                            true,
                             {from: trustAddress});
 
         var balance = await disburse.getBeneficiaryBalance(trustAddress);
@@ -96,7 +97,8 @@ contract("Disburse V1", () => {
         await disburse.addBeneficiarySeconds(
                             beneficiaryAddress, 
                             delayInSeconds, 
-                            amount, 
+                            amount,
+                            true, 
                             {from: trustAddress});
         
         var id = await disburse.getBeneficiaryId(beneficiaryAddress, {from: trustAddress});
@@ -107,6 +109,7 @@ contract("Disburse V1", () => {
         assert(beneficiary['beneficiaryAddress'] == beneficiaryAddress);
         assert(beneficiary['disburseDate'] > 0);
         assert(beneficiary['amount'] == amount);
+        assert(beneficiary['cancelAllowed'] == true);
         assert(beneficiary['complete'] == false);
 
         var count = await disburse.getBeneficiaryCount({from: trustAddress});
@@ -118,7 +121,7 @@ contract("Disburse V1", () => {
 
         await disburse.withdrawTrustBalance({from: trustAddress});
     });
-
+  
     it("can add and remove disbursement attached to beneficiary", async () => {
         var trustAddress = accounts[0];
         var beneficiaryAddress = accounts[1];
@@ -131,7 +134,8 @@ contract("Disburse V1", () => {
         await disburse.addBeneficiarySeconds(
                             beneficiaryAddress, 
                             delayInSeconds, 
-                            amount, 
+                            amount,
+                            true, 
                             {from: trustAddress});
         
         var id = await disburse.getBeneficiaryId(beneficiaryAddress, {from: trustAddress});
@@ -167,7 +171,8 @@ contract("Disburse V1", () => {
         await disburse.addBeneficiary(
                             beneficiary1, 
                             delayInSeconds, 
-                            amount, 
+                            amount,
+                            true, 
                             {from: trustAddress});
 
         var id1 = await disburse.getBeneficiaryId(beneficiary1, {from: trustAddress});
@@ -180,7 +185,8 @@ contract("Disburse V1", () => {
         await disburse.addBeneficiary(
                             beneficiary2, 
                             delayInSeconds, 
-                            amount, 
+                            amount,
+                            true, 
                             {from: trustAddress});
 
         var id2 = await disburse.getBeneficiaryId(beneficiary2, {from: trustAddress});
@@ -210,13 +216,15 @@ contract("Disburse V1", () => {
         await disburse.addBeneficiary(
                             beneficiary1, 
                             delayInSeconds, 
-                            amount, 
+                            amount,
+                            true, 
                             {from: trustAddress});
 
         await disburse.addBeneficiary(
                             beneficiary2, 
                             delayInSeconds, 
-                            amount, 
+                            amount,
+                            true, 
                             {from: trustAddress});
 
         var count = await disburse.getBeneficiaryCount({from: trustAddress});
@@ -237,6 +245,9 @@ contract("Disburse V1", () => {
         await disburse.removeBeneficiary(id1, {from: trustAddress});
         await disburse.removeBeneficiary(id2, {from: trustAddress});
         await disburse.withdrawTrustBalance({from: trustAddress});
+
+        var count = await disburse.getBeneficiaryCount({from: trustAddress});
+        assert(count == 0);
     });
 
     it("cannot add beneficiary WITHOUT trust", async () => {
@@ -246,11 +257,14 @@ contract("Disburse V1", () => {
         var amount = web3.utils.toWei('5', 'ether');
         
         try {
-            await disburse.addBeneficiarySeconds(beneficiaryAddress, delayInSeconds, amount, {from: trustAddress});
+            await disburse.addBeneficiarySeconds(beneficiaryAddress, delayInSeconds, amount, true, {from: trustAddress});
         }
         catch(err) {
             assert(true);
         }
+
+        var count = await disburse.getBeneficiaryCount({from: trustAddress});
+        assert(count == 0);
     });
 
     it("can test disburse funds by beneficiary", async () => {
@@ -266,7 +280,8 @@ contract("Disburse V1", () => {
         await disburse.addBeneficiary(
                             beneficiaryAddress, 
                             delayInSeconds, 
-                            amount, 
+                            amount,
+                            true, 
                             {from: trustAddress});
 
         var id = await disburse.getBeneficiaryId(beneficiaryAddress, {from: trustAddress});
@@ -281,8 +296,11 @@ contract("Disburse V1", () => {
         assert(newETHBalance > 100);
 
         // Cleanup
-        await disburse.removeBeneficiary(id, {from: trustAddress});
+        // As the funds have been disbursed, we can no longer remove the beneficiary
         await disburse.withdrawTrustBalance({from: trustAddress});
+
+        var count = await disburse.getBeneficiaryCount({from: trustAddress});
+        assert(count == 0);
 
         // Send balance of beneficiary back to trust
         await web3.eth.sendTransaction({to:trustAddress, from:beneficiaryAddress, value:web3.utils.toWei("2", "ether")});
@@ -301,7 +319,8 @@ contract("Disburse V1", () => {
         await disburse.addBeneficiary(
                             beneficiaryAddress, 
                             delayInSeconds, 
-                            amount, 
+                            amount,
+                            true, 
                             {from: trustAddress});
 
         var id = await disburse.getBeneficiaryId(beneficiaryAddress, {from: trustAddress});
@@ -316,11 +335,52 @@ contract("Disburse V1", () => {
         assert(newETHBalance > 100);
 
         // Cleanup
-        await disburse.removeBeneficiary(id, {from: trustAddress});
+        // As the funds have been disbursed, we can no longer remove the beneficiary
         await disburse.withdrawTrustBalance({from: trustAddress});
+
+        var count = await disburse.getBeneficiaryCount({from: trustAddress});
+        assert(count == 0);
 
         // Send balance of beneficiary back to trust
         await web3.eth.sendTransaction({to:trustAddress, from:beneficiaryAddress, value:web3.utils.toWei("2", "ether")});
+    });
+
+    it("can NOT remove added beneficiary to trust", async () => {
+        var trustAddress = accounts[0];
+        var beneficiaryAddress = accounts[1];
+        var delayInSeconds = 0;
+        var amount = web3.utils.toWei('2', 'ether');
+        
+        var weiAmount = web3.utils.toWei('10', 'ether');
+        await disburse.contributeToTrust({ from: trustAddress, value: weiAmount });
+
+        await disburse.addBeneficiarySeconds(
+                            beneficiaryAddress, 
+                            delayInSeconds, 
+                            amount,
+                            false, 
+                            {from: trustAddress});
+        
+        var id = await disburse.getBeneficiaryId(beneficiaryAddress, {from: trustAddress});
+
+        var count = await disburse.getBeneficiaryCount({from: trustAddress});
+        assert(count == 1);
+        
+        await disburse.removeBeneficiary(id, {from: trustAddress});
+        count = await disburse.getBeneficiaryCount({from: trustAddress});
+        // Remove should not be allowed as the flag has been set to false.
+        assert(count == 1);
+
+        // Disburse funds to remove beneficiary
+        await disburse.disburseFunds(trustAddress, id, { from: trustAddress});
+
+        count = await disburse.getBeneficiaryCount({from: trustAddress});
+        assert(count == 0);
+
+        // Send balance of beneficiary back to trust
+        await web3.eth.sendTransaction({to:trustAddress, from:beneficiaryAddress, value:web3.utils.toWei("2", "ether")});
+
+        await disburse.withdrawTrustBalance({from: trustAddress});
     });
 
     /*
