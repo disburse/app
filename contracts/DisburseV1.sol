@@ -26,7 +26,9 @@ contract DisburseV1 {
     event DisbursementReadyEvent(bool flag);
     event CancelAllowed(bool flag);
     event RemoveBeneficiary(bool flag);
+    event RefundTrust(bool flag);
 
+    // Mapping from trust to list of beneficiaries
     // Mapping that outlines how funds should be disbursed to beneficiaries
     mapping(address => mapping(uint256 => Beneficiary)) beneficiaries;
 
@@ -42,6 +44,7 @@ contract DisburseV1 {
     // Mapping the current beneficiary balance, which may be less than the trust balance
     mapping(address => uint256) beneficiaryBalance;
 
+    // Mapping of beneficiary to list of disbursements
     // Mapping that outlines all upcoming disbursements to beneficiaries
     mapping(address => mapping(uint256 => Disbursement)) public disbursements;
 
@@ -168,9 +171,9 @@ contract DisburseV1 {
     }
 
     // Retrieve beneficiary based on it's unique id
-    function getBeneficiary(uint256 _id) public view returns(Beneficiary memory _beneficiary) {
+    function getBeneficiary(uint256 _beneficiaryId) public view returns(Beneficiary memory _beneficiary) {
         // Only trust owner can get details of beneficiary
-        _beneficiary = beneficiaries[msg.sender][_id];
+        _beneficiary = beneficiaries[msg.sender][_beneficiaryId];
     }
     
     // TODO FIX: What happens if we have the same beneficiary Address on two different disbursement dates?
@@ -282,6 +285,8 @@ contract DisburseV1 {
             // Will only execute BEFORE disbursement date
             if (!passedDisbursementDate) {
                 
+                // The trustBalance changes with deposit, withdraw and disburseFunds.
+
                 // Reduce total beneficiary claims
                 beneficiaryBalance[_trustAddress] -= beneficiary.amount;
                 
@@ -306,6 +311,32 @@ contract DisburseV1 {
         else{
             emit RemoveBeneficiary(false);
         }
+    }
+
+    // This function can only be called by a valid beneficiary (not everyone)
+    function refundTrust(uint256 _disbursementId) public {
+
+        Disbursement memory disbursement = disbursements[msg.sender][_disbursementId];
+
+        Beneficiary memory beneficiary = beneficiaries[disbursement.trustAddress][disbursement.beneficiaryId];
+
+        // Reduce total beneficiary claims
+        beneficiaryBalance[disbursement.trustAddress] -= beneficiary.amount;
+        
+        // Update total number of beneficiaries this trust is managing
+        beneficiaryCount[disbursement.trustAddress] -= 1;
+
+        // Update total number of disbursements tied to this beneficiary
+        disbursementCount[beneficiary.beneficiaryAddress] -= 1;
+
+        // will delete the struct.  
+        // This deletion must occur BEFORE the beneficiary deletion, otherwise address will not existing
+        delete disbursements[beneficiary.beneficiaryAddress][_disbursementId];
+        
+        // will delete the struct
+        delete beneficiaries[beneficiary.trustAddress][beneficiary.id];
+
+        emit RefundTrust(true);
     }
 
 }

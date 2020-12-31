@@ -383,6 +383,80 @@ contract("Disburse V1", () => {
         await disburse.withdrawTrustBalance({from: trustAddress});
     });
 
+    it("can refund trust by valid beneficiary", async () => {
+        var trustAddress = accounts[0];
+        var beneficiaryAddress = accounts[1];
+        var delayInSeconds = 0;
+        var amount = web3.utils.toWei('2', 'ether');
+        
+        var weiAmount = web3.utils.toWei('10', 'ether');
+        await disburse.contributeToTrust({ from: trustAddress, value: weiAmount });
+
+        // Assume cancellation by trust is prevented
+        await disburse.addBeneficiary(
+                            beneficiaryAddress, 
+                            delayInSeconds, 
+                            amount,
+                            false, 
+                            {from: trustAddress});
+        
+        var beneficiaryId = await disburse.getBeneficiaryId(beneficiaryAddress, {from: trustAddress});
+
+        var count = await disburse.getBeneficiaryCount({from: trustAddress});
+        assert(count == 1);
+
+        // Refund trust and remove beneficiary in the process
+        var disbursementId = await disburse.getDisbursementId(trustAddress, beneficiaryId);
+        await disburse.refundTrust(disbursementId, {from: beneficiaryAddress});
+
+        count = await disburse.getBeneficiaryCount({from: trustAddress});
+        assert(count == 0);
+
+        await disburse.withdrawTrustBalance({from: trustAddress});
+    });
+
+    it("cannot refund trust by another beneficiary", async () => {
+        var trustAddress = accounts[0];
+        var beneficiaryAddress1 = accounts[1];
+        var beneficiaryAddress2 = accounts[2];
+        var delayInSeconds = 0;
+        var amount = web3.utils.toWei('2', 'ether');
+        
+        var weiAmount = web3.utils.toWei('10', 'ether');
+        await disburse.contributeToTrust({ from: trustAddress, value: weiAmount });
+
+        // Assume cancellation by trust is prevented
+        await disburse.addBeneficiary(
+                            beneficiaryAddress1, 
+                            delayInSeconds, 
+                            amount,
+                            false, 
+                            {from: trustAddress});
+        
+        var beneficiaryId = await disburse.getBeneficiaryId(beneficiaryAddress1, {from: trustAddress});
+
+        var count = await disburse.getBeneficiaryCount({from: trustAddress});
+        assert(count == 1);
+
+        // Refund trust and remove beneficiary in the process
+        var disbursementId = await disburse.getDisbursementId(trustAddress, beneficiaryId)
+
+        // Attempt to refund trust from the wrong beneficiary address - this should fail
+        await disburse.refundTrust(disbursementId, {from: beneficiaryAddress2});
+
+        count = await disburse.getBeneficiaryCount({from: trustAddress});
+        assert(count == 1);
+
+        // Now complete the refund from the correct beneficiary address
+        await disburse.refundTrust(disbursementId, {from: beneficiaryAddress1});
+
+        count = await disburse.getBeneficiaryCount({from: trustAddress});
+        assert(count == 0);
+
+        await disburse.withdrawTrustBalance({from: trustAddress});
+    });
+
+
     /*
     it("it can assign administrator", async () => {
         var disburse = await Disburse.deployed();
