@@ -3,8 +3,8 @@ pragma solidity >=0.4.22 <0.8.0;
 pragma experimental ABIEncoderV2;
 
 contract DisburseV1 {
- 
-     struct Beneficiary { 
+
+    struct Beneficiary { 
         uint256 id;
         address trustAddress;
         address beneficiaryAddress;
