@@ -139,9 +139,8 @@ contract("Disburse V1", () => {
                             {from: trustAddress});
         
         var id = await disburse.getBeneficiaryId(beneficiaryAddress, {from: trustAddress});
-        //var beneficiary = await disburse.getBeneficiary(id, {from: trustAddress});
 
-        var disbursementCount = await disburse.disbursementCount(beneficiaryAddress);
+        var disbursementCount = await disburse.getDisbursementCount(beneficiaryAddress);
         assert(disbursementCount == 1);
 
         var count = await disburse.getBeneficiaryCount({from: trustAddress});
@@ -152,7 +151,7 @@ contract("Disburse V1", () => {
         assert(count == 0);
 
         // Ensure disbursement was also removed when the beneficiary was removed.
-        disbursementCount = await disburse.disbursementCount(beneficiaryAddress);
+        disbursementCount = await disburse.getDisbursementCount(beneficiaryAddress);
         assert(disbursementCount == 0)
 
         await disburse.withdrawTrustBalance({from: trustAddress});
@@ -455,7 +454,6 @@ contract("Disburse V1", () => {
 
         await disburse.withdrawTrustBalance({from: trustAddress});
     });
-
 
     /*
     it("it can assign administrator", async () => {

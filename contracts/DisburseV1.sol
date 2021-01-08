@@ -2,7 +2,9 @@
 pragma solidity >=0.4.22 <0.8.0;
 pragma experimental ABIEncoderV2;
 
-contract DisburseV1 {
+import "./Secure.sol";
+
+contract DisburseV1 is Secure {
 
     struct Beneficiary { 
         uint256 id;
@@ -28,6 +30,8 @@ contract DisburseV1 {
     event RemoveBeneficiary(bool flag);
     event RefundTrust(bool flag);
 
+    // Persistent contract storage variables
+
     // Mapping from trust to list of beneficiaries
     // Mapping that outlines how funds should be disbursed to beneficiaries
     mapping(address => mapping(uint256 => Beneficiary)) beneficiaries;
@@ -46,20 +50,23 @@ contract DisburseV1 {
 
     // Mapping of beneficiary to list of disbursements
     // Mapping that outlines all upcoming disbursements to beneficiaries
-    mapping(address => mapping(uint256 => Disbursement)) public disbursements;
+    mapping(address => mapping(uint256 => Disbursement)) disbursements;
 
     // Mapping to record total disbursements for each beneficiary
-    mapping(address => uint256) public disbursementCount;
+    mapping(address => uint256) disbursementCount;
 
     // Mapping to record last disbursement id for each beneficiary
-    mapping(address => uint256) public topDisbursementId;
+    mapping(address => uint256) topDisbursementId;
+
+    // Call parent constructor and initialize secure contract
+    constructor() Secure(msg.sender) public {}
 
     function contributeToTrust() public payable {
         trustBalance[msg.sender] += msg.value;  // Add funds to any previous funds
     }
 
-    function getTrustBalance(address _trustAddress) public view returns(uint256 _balance) {
-        _balance = trustBalance[_trustAddress];
+    function getTrustBalance(address _trustAddress) public view returns(uint256) {
+        return trustBalance[_trustAddress];
     }
 
     function withdrawTrustBalance() public {
@@ -72,12 +79,12 @@ contract DisburseV1 {
         msg.sender.transfer(_amount);
     }
 
-    function getBeneficiaryBalance(address _trustAddress) public view returns(uint256 _balance) {
-        _balance = beneficiaryBalance[_trustAddress];
+    function getBeneficiaryBalance(address _trustAddress) public view returns(uint256) {
+        return beneficiaryBalance[_trustAddress];
     }
 
-    function getContractBalance() public view returns(uint256 _balance) {
-        _balance = address(this).balance;
+    function getContractBalance() public view returns(uint256) {
+        return address(this).balance;
     }
 
     function addBeneficiarySeconds(address _beneficiaryAddress, uint256 _seconds, uint256 _amount, bool _cancelAllowed) public {
@@ -196,6 +203,16 @@ contract DisburseV1 {
                 break;
             }
         }
+    }
+
+    // Retrieve total number of disbursements of a partricular beneficiary
+    function getDisbursementCount(address _beneficiary) public view returns(uint256) {
+        return disbursementCount[_beneficiary];
+    }
+
+    // Counter that increments the id's of disbursements
+    function getTopDisbursementId() public view returns(uint256) {
+        return topDisbursementId[msg.sender];
     }
 
     // Retrieve the disbursement ID associated with a given beneficiary ID
@@ -337,6 +354,25 @@ contract DisburseV1 {
         delete beneficiaries[beneficiary.trustAddress][beneficiary.id];
 
         emit RefundTrust(true);
+    }
+
+    // Emergency: destroy contract and reclaim leftover funds.
+    function emergency() public restricted {
+        selfdestruct(msg.sender);
+    }
+
+    // Utility function
+    function calculatePercentage(uint256 _amount, uint256 _bps) public pure returns(uint256) {
+        
+        // Ensure amount being calculated is large enough
+        require ((_amount / 10000) * 10000 == _amount, 'too small');
+        
+        // Example: Assume 185 basis points, which is the same as 0.0185
+        // To turn 0.0185 into a non-decimal it must be times by 10,10000
+        // 0.0185 = 10,000 
+        // Then to return the number to its original value it must be divided by 10,000
+        
+        return _amount * _bps / 10000;
     }
 
 }
