@@ -1,0 +1,17 @@
+Sample deployment process:
+
+1) Set metamask to goerli network
+
+1) Go to faucet and get test ether for goerli network
+
+2) Import code into remix and fix any import statements.  
+
+3) Under the compile tab you can copy the ABI and copy to the webapp repository for access
+
+4) Under the Deploy & Run Transaction tab, set the compile tab to Injected Web3, and deploy main Disburse contract.
+
+5) Under the Deploy & Run Transaction tab, copy the contract address to the utility.js file.
+
+***Now ready to run tests with you localhost webserver connecting to goerli network
+
+

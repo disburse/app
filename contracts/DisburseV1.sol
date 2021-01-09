@@ -235,6 +235,11 @@ contract DisburseV1 is Secure {
         }
     }
 
+    // Retrieve disbursement based on it's unique id
+    function getDisbursement(address _beneficiaryAddress, uint256 _disbursementId) public view returns(Disbursement memory _disbursement) {
+        _disbursement = disbursements[_beneficiaryAddress][_disbursementId];
+    }
+
     // Determine if the disbursement date has passed
     function readyToDisburse(address _trustAddress, uint256 _id) public view returns (bool) {
         
