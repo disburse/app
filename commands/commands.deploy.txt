@@ -14,4 +14,37 @@ Sample deployment process:
 
 ***Now ready to run tests with you localhost webserver connecting to goerli network
 
+Deployment with Truffle
 
+Video: https://www.youtube.com/watch?v=XcFl8fj-_ZU
+
+Modify truffle-config.js
+
+// Uncomment this code:
+
+const HDWalletProvider = require('@truffle/hdwallet-provider');
+const infuraKey = "5bcd325e39b94eef8c0f11fc550ccf9e";
+
+const fs = require('fs');
+const mnemonic = fs.readFileSync(".secret").toString().trim();
+
+// Add this network:
+
+goerli: {
+    provider: () => {
+    return new HDWalletProvider(mnemonic, 'https://goerli.infura.io/v3/' + infuraKey)
+    },
+    network_id: '5', // eslint-disable-line camelcase
+    gas: 4465030,
+    gasPrice: 10000000000,
+},
+
+The .secret file contains the mnemonic with the ether necessary for the deployment
+
+npm install fs
+
+npm install @truffle/hdwallet-provider
+
+truffle migrate --network goerli
+
+truffle compile --network goerli

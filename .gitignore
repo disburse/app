@@ -2,6 +2,8 @@
 
 /commands/notes.txt
 
+.secret
+
 # dependencies
 /node_modules
 /.pnp
