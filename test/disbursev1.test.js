@@ -4,6 +4,7 @@ const Disburse = artifacts.require("DisburseV1");
 var disburse;
 var accounts;
 
+// Send commands to the ganache blockchain server
 function rpcSend(web3, method, ... params) {
     return require('util')
         .promisify(web3.currentProvider.send)
@@ -11,6 +12,18 @@ function rpcSend(web3, method, ... params) {
             jsonrpc: "2.0", method, params
         });
 }
+
+// Mine additional blocks on the ganache blockchain server
+// Useful if testing for minimum confirmations
+/*
+function mineBlocks(web3, number) {
+    return Promise.all(
+        Array.from({ length: number }, () => (
+            rpcSend(web3, "evm_mine")
+        ))
+    );
+}
+*/
 
 function takeSnapshot(web3) {
     return rpcSend(web3, "evm_snapshot").then(r => r.result);
