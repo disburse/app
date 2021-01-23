@@ -4,11 +4,37 @@ const Disburse = artifacts.require("DisburseV1");
 var disburse;
 var accounts;
 
+function rpcSend(web3, method, ... params) {
+    return require('util')
+        .promisify(web3.currentProvider.send)
+        .call(web3.currentProvider, {
+            jsonrpc: "2.0", method, params
+        });
+}
+
+function takeSnapshot(web3) {
+    return rpcSend(web3, "evm_snapshot").then(r => r.result);
+}
+
+function revertToSnapshot(web3, id) {
+    return rpcSend(web3, "evm_revert", id);
+}
+
 contract("Disburse V1", () => {
 
-    beforeEach(async () => {
+    before(async () => {
         disburse = await Disburse.deployed();
         accounts = await web3.eth.getAccounts();
+    });
+
+    // Take a snapshot of the blockchain before each test
+    beforeEach(async () => {
+        this.snapshotId = await takeSnapshot(web3);
+    });
+
+    // After each test completes, revert to the original snapshot
+    afterEach(async () => {
+        await revertToSnapshot(web3, this.snapshotId);
     });
 
     it("can retrieve empty trust balance", async () => {
@@ -24,6 +50,10 @@ contract("Disburse V1", () => {
     });
 
     it("can withdraw trust balance", async () => {
+
+        var weiAmount = web3.utils.toWei('10', 'ether');
+        await disburse.contributeToTrust({ from: accounts[0], value: weiAmount });
+
         var originalBalance = await web3.eth.getBalance(accounts[0]);
         await disburse.withdrawTrustBalance({from: accounts[0]});
         var newBalance = await web3.eth.getBalance(accounts[0]);
